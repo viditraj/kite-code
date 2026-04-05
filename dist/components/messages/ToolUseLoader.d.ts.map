@@ -1,1 +1,0 @@
-{"version":3,"file":"ToolUseLoader.d.ts","sourceRoot":"","sources":["../../../src/components/messages/ToolUseLoader.tsx"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,MAAM,OAAO,CAAA;AAQzB,MAAM,WAAW,kBAAkB;IACjC,QAAQ,EAAE,MAAM,CAAA;IAChB,WAAW,CAAC,EAAE,MAAM,CAAA;CACrB;AAMD,eAAO,MAAM,aAAa,EAAE,KAAK,CAAC,EAAE,CAAC,kBAAkB,CActD,CAAA;AAED,eAAe,aAAa,CAAA"}

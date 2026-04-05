@@ -1,1 +1,0 @@
-{"version":3,"file":"FilePathLink.d.ts","sourceRoot":"","sources":["../../../src/components/messages/FilePathLink.tsx"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,MAAM,OAAO,CAAA;AAOzB,MAAM,WAAW,iBAAiB;IAChC,IAAI,EAAE,MAAM,CAAA;IACZ,UAAU,CAAC,EAAE,MAAM,CAAA;CACpB;AAMD,eAAO,MAAM,YAAY,EAAE,KAAK,CAAC,EAAE,CAAC,iBAAiB,CAcpD,CAAA;AAED,eAAe,YAAY,CAAA"}

@@ -1,1 +1,0 @@
-{"version":3,"file":"useMemoryUsage.d.ts","sourceRoot":"","sources":["../../../src/ink/hooks/useMemoryUsage.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAKH,MAAM,MAAM,iBAAiB,GAAG,QAAQ,GAAG,MAAM,GAAG,UAAU,CAAA;AAE9D,MAAM,WAAW,eAAe;IAC9B,QAAQ,EAAE,MAAM,CAAA;IAChB,MAAM,EAAE,iBAAiB,CAAA;CAC1B;AAMD;;;GAGG;AACH,wBAAgB,cAAc,IAAI,eAAe,GAAG,IAAI,CAqBvD"}

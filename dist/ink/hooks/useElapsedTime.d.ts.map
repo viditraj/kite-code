@@ -1,1 +1,0 @@
-{"version":3,"file":"useElapsedTime.d.ts","sourceRoot":"","sources":["../../../src/ink/hooks/useElapsedTime.ts"],"names":[],"mappings":"AAAA;;;;;;;;;;;;GAYG;AAIH,iBAAS,cAAc,CAAC,EAAE,EAAE,MAAM,GAAG,MAAM,CAW1C;AAED,wBAAgB,cAAc,CAC5B,SAAS,EAAE,MAAM,EACjB,SAAS,EAAE,OAAO,EAClB,EAAE,GAAE,MAAa,EACjB,QAAQ,GAAE,MAAU,EACpB,OAAO,CAAC,EAAE,MAAM,GACf,MAAM,CAcR;AAED,OAAO,EAAE,cAAc,EAAE,CAAA"}
