@@ -1,6 +1,6 @@
 {
   "name": "@viditraj/kite-code",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Open-source AI terminal assistant — web search, browsing, coding, and more. Zero telemetry, any LLM provider.",
   "type": "module",
   "main": "dist/entrypoints/cli.js",
