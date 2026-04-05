@@ -1,0 +1,84 @@
+{
+  "name": "@kite-code/cli",
+  "version": "0.1.0",
+  "description": "Open-source AI coding CLI — zero telemetry, any LLM provider",
+  "type": "module",
+  "main": "dist/entrypoints/cli.js",
+  "bin": {
+    "kite": "dist/entrypoints/cli.js"
+  },
+  "files": [
+    "dist/",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "postbuild": "node -e \"const{chmodSync}=require('fs');try{chmodSync('dist/entrypoints/cli.js',0o755)}catch{}\"",
+    "start": "node --no-warnings --import tsx/esm src/entrypoints/cli.ts",
+    "dev": "node --no-warnings --import tsx/esm --watch src/entrypoints/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build && npm test",
+    "benchmark": "node scripts/benchmark.mjs"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "coding",
+    "llm",
+    "terminal",
+    "openai",
+    "anthropic",
+    "ollama",
+    "coding-assistant"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kite-code/kite-code.git"
+  },
+  "homepage": "https://github.com/kite-code/kite-code#readme",
+  "bugs": {
+    "url": "https://github.com/kite-code/kite-code/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^14.0.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@playwright/mcp": "^0.0.70",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "diff": "^8.0.2",
+    "emoji-regex": "^10.4.0",
+    "fuse.js": "^7.1.0",
+    "highlight.js": "^11.11.1",
+    "ignore": "^7.0.5",
+    "ink": "^4.4.1",
+    "ink-big-text": "^1.2.0",
+    "ink-gradient": "^3.0.0",
+    "ink-select-input": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "lodash-es": "^4.17.21",
+    "react": "^18.3.1",
+    "semver": "^7.7.2",
+    "signal-exit": "^4.1.0",
+    "strip-ansi": "^7.1.0",
+    "wrap-ansi": "^9.0.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/diff": "^8.0.0",
+    "@types/lodash-es": "^4.17.12",
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.18",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.3"
+  }
+}

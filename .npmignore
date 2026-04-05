@@ -1,0 +1,14 @@
+src/
+tests/
+*.test.ts
+*.test.tsx
+.github/
+.devin/
+scripts/
+tsconfig.json
+vitest.config.*
+KITE_TS_PLAN.md
+AGENTS.md
+kite.config.json
+.gitignore
+node_modules/

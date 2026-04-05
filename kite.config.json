@@ -1,0 +1,20 @@
+{
+  "provider": {
+    "name": "custom",
+    "model": "gemma4",
+    "apiKeyEnv": "KITE_API_KEY",
+    "apiBaseUrl": "https://host1.ai.apexeng.labs.dell/gemma4/v1/chat/completions",
+    "verifySsl": false,
+    "extraPayload": {
+      "max_context_length": 256000,
+      "chat_template_kwargs": {
+        "enable_thinking": true
+      },
+      "include_reasoning": true
+    }
+  },
+  "behavior": {
+    "permissionMode": "default",
+    "maxTokens": 4096
+  }
+}
