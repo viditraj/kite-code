@@ -30,7 +30,7 @@ export interface ProviderSetupProps {
   onSkip?: () => void
 }
 
-type Step = 'provider' | 'model' | 'apikey' | 'baseurl' | 'confirm'
+type Step = 'provider' | 'model' | 'apikey' | 'baseurl' | 'verifyssl' | 'confirm'
 
 // ============================================================================
 // Provider Presets
@@ -208,6 +208,7 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
   const [apiKeyEnv, setApiKeyEnv] = useState('')
   const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [customModel, setCustomModel] = useState('')
+  const [verifySsl, setVerifySsl] = useState(true)
 
   // Escape to skip (if allowed)
   useInput((input, key) => {
@@ -261,7 +262,10 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
     if (!selectedModel && customModel) {
       setSelectedModel(customModel)
     }
-    if (selectedPreset?.needsApiKey) {
+    // For custom providers or any provider with a base URL, ask about SSL
+    if (url && (selectedPreset?.name === 'custom' || selectedPreset?.needsBaseUrl)) {
+      setStep('verifyssl')
+    } else if (selectedPreset?.needsApiKey) {
       setStep('apikey')
     } else {
       setStep('confirm')
@@ -284,9 +288,9 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
       model,
       apiKeyEnv: apiKeyEnv || 'KITE_API_KEY',
       apiBaseUrl,
-      verifySsl: true,
+      verifySsl,
     })
-  }, [selectedPreset, selectedModel, customModel, apiKeyEnv, apiBaseUrl, onComplete])
+  }, [selectedPreset, selectedModel, customModel, apiKeyEnv, apiBaseUrl, verifySsl, onComplete])
 
   // ========================================================================
   // Render
@@ -413,6 +417,35 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
         </Box>
       )}
 
+      {/* Step: Verify SSL */}
+      {step === 'verifyssl' && (
+        <Box flexDirection="column">
+          <Box marginBottom={1}>
+            <Text bold color="cyan">Verify SSL certificates?</Text>
+          </Box>
+          <Box marginBottom={1}>
+            <Text dimColor>
+              If your endpoint uses a self-signed certificate, set this to No.{'\n'}
+              Most local/internal servers need SSL verification disabled.
+            </Text>
+          </Box>
+          <SelectInput
+            items={[
+              { label: 'Yes — verify SSL (default, recommended for public APIs)', value: 'yes' },
+              { label: 'No — skip SSL verification (for self-signed certs)', value: 'no' },
+            ]}
+            onSelect={(item) => {
+              setVerifySsl(item.value === 'yes')
+              if (selectedPreset?.needsApiKey) {
+                setStep('apikey')
+              } else {
+                setStep('confirm')
+              }
+            }}
+          />
+        </Box>
+      )}
+
       {/* Step: Confirm */}
       {step === 'confirm' && (
         <Box flexDirection="column">
@@ -447,6 +480,12 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
                 <Text>{apiBaseUrl}</Text>
               </Text>
             )}
+            {apiBaseUrl && (
+              <Text>
+                <Text dimColor>Verify SSL:</Text>
+                <Text color={verifySsl ? 'green' : 'yellow'}> {verifySsl ? 'yes' : 'no'}</Text>
+              </Text>
+            )}
           </Box>
           <Box marginTop={1}>
             <SelectInput
@@ -464,6 +503,7 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
                   setCustomModel('')
                   setApiKeyEnv('')
                   setApiBaseUrl('')
+                  setVerifySsl(true)
                 }
               }}
             />

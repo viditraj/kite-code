@@ -1221,6 +1221,107 @@ function createBuiltinCommands(): Command[] {
         }
       },
     },
+
+    // ---- provider-settings ----
+    {
+      type: 'local',
+      name: 'provider-settings',
+      description: 'View or change provider settings (model, base URL, API key, SSL)',
+      argumentHint: '[setting] [value]',
+      aliases: ['ps'],
+      supportsNonInteractive: true,
+      async call(args, context) {
+        const appState = context.getAppState()
+        const config = appState._config as any
+        if (!config?.provider) {
+          return { type: 'text', value: 'No configuration loaded. Run /setup first.' }
+        }
+        const provider = config.provider
+
+        const parts = args.trim().split(/\s+/)
+        const setting = parts[0]?.toLowerCase()
+        const value = parts.slice(1).join(' ')
+
+        // No args — show current settings
+        if (!setting) {
+          const fs = await import('fs')
+          const path = await import('path')
+          const configPath = path.join(process.cwd(), 'kite.config.json')
+          const hasConfigFile = fs.existsSync(configPath)
+
+          const lines = [
+            'Provider Settings:',
+            '',
+            `  name:       ${provider.name ?? 'unknown'}`,
+            `  model:      ${provider.model ?? 'unknown'}`,
+            `  apiKeyEnv:  ${provider.apiKeyEnv ?? 'KITE_API_KEY'}`,
+            `  apiBaseUrl: ${provider.apiBaseUrl || '(default)'}`,
+            `  verifySsl:  ${provider.verifySsl === false ? 'false' : 'true'}`,
+            '',
+            'To change a setting:',
+            '  /provider-settings model gpt-4o',
+            '  /provider-settings apiBaseUrl https://my-server.com/v1/chat/completions',
+            '  /provider-settings verifySsl false',
+            '  /provider-settings apiKeyEnv MY_CUSTOM_KEY',
+            '  /provider-settings name ollama',
+            '',
+            `Config file: ${hasConfigFile ? configPath : '(not found — changes are session-only)'}`,
+          ]
+          return { type: 'text', value: lines.join('\n') }
+        }
+
+        // Validate setting name
+        const validSettings = ['name', 'model', 'apibaseurl', 'apikeyenv', 'verifyssl']
+        const settingMap: Record<string, string> = {
+          name: 'name',
+          model: 'model',
+          apibaseurl: 'apiBaseUrl',
+          apikeyenv: 'apiKeyEnv',
+          verifyssl: 'verifySsl',
+        }
+
+        if (!validSettings.includes(setting)) {
+          return { type: 'text', value: `Unknown setting: ${setting}\nValid settings: name, model, apiBaseUrl, apiKeyEnv, verifySsl` }
+        }
+
+        if (!value) {
+          const key = settingMap[setting]!
+          const current = provider[key]
+          return { type: 'text', value: `${key}: ${current === undefined ? '(not set)' : String(current)}` }
+        }
+
+        // Apply the change
+        const key = settingMap[setting]!
+        if (setting === 'verifyssl') {
+          provider[key] = value.toLowerCase() !== 'false' && value !== '0'
+        } else {
+          provider[key] = value
+        }
+
+        // Also save to kite.config.json if it exists
+        try {
+          const fs = await import('fs')
+          const path = await import('path')
+          const configPath = path.join(process.cwd(), 'kite.config.json')
+          if (fs.existsSync(configPath)) {
+            const raw = fs.readFileSync(configPath, 'utf-8')
+            const configData = JSON.parse(raw)
+            if (!configData.provider) configData.provider = {}
+            if (setting === 'verifyssl') {
+              configData.provider.verifySsl = provider[key]
+            } else {
+              configData.provider[key] = value
+            }
+            fs.writeFileSync(configPath, JSON.stringify(configData, null, 2) + '\n', 'utf-8')
+            return { type: 'text', value: `${key} set to: ${provider[key]}\nSaved to ${configPath}\nNote: Restart Kite for changes to take full effect.` }
+          }
+        } catch {
+          // Config file save failed — non-fatal
+        }
+
+        return { type: 'text', value: `${key} set to: ${provider[key]} (session only — no kite.config.json found)` }
+      },
+    },
   ]
 }
 
