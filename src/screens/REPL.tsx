@@ -23,6 +23,7 @@ import { randomUUID } from 'crypto'
 import { LogoV2, CondensedLogo } from '../components/LogoV2/LogoV2.js'
 import { Spinner, type SpinnerMode } from '../components/Spinner/Spinner.js'
 import { PromptInput } from '../components/PromptInput/PromptInput.js'
+import { ProviderSetup, type ProviderSetupResult } from './ProviderSetup.js'
 import {
   MessageRow,
   MessageDivider,
@@ -90,7 +91,7 @@ interface PermissionQueueItem {
   resolve: (allowed: boolean) => void
 }
 
-type Screen = 'prompt' | 'loading' | 'permission' | 'interactive-command'
+type Screen = 'prompt' | 'loading' | 'permission' | 'interactive-command' | 'setup'
 
 interface InteractiveCommandState {
   type: 'help' | 'model' | 'provider' | 'mode' | 'theme'
@@ -250,7 +251,9 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
   useEffect(() => {
     engine['appState']._provider = provider
     engine['appState']._permissionContext = permissionContext
-  }, [engine, provider, permissionContext])
+    engine['appState']._config = config
+    engine['appState']._sessionId = sessionRef.current?.id
+  }, [engine, provider, permissionContext, config])
 
   // Connect MCP servers and update engine tools
   useEffect(() => {
@@ -556,9 +559,8 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
 
         // Non-interactive commands
         if (cmd.name === 'setup') {
-          // Show provider picker inline (same as /provider but more guided)
-          setInteractiveCmd({ type: 'provider', title: 'Provider Setup — Select Provider', items: getProviderItems() })
-          setScreen('interactive-command')
+          // Launch the full provider setup wizard
+          setScreen('setup')
           return
         }
         if (cmd.name === 'thinking') {
@@ -702,6 +704,12 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
       }
 
       case 'provider': {
+        // If user picks "Custom", launch the full setup wizard
+        if (item.value === '__setup__') {
+          setInteractiveCmd(null)
+          setScreen('setup')
+          return
+        }
         const appState = engine['appState']
         if (appState._config) {
           const cfg = (appState._config as any).provider
@@ -744,6 +752,59 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
 
   const handleInteractiveCancel = useCallback(() => {
     setInteractiveCmd(null)
+    setScreen('prompt')
+  }, [])
+
+  // ========================================================================
+  // Setup wizard completion
+  // ========================================================================
+
+  const handleSetupComplete = useCallback((result: ProviderSetupResult) => {
+    // Apply to in-memory config
+    const appState = engine['appState']
+    if (appState._config) {
+      const cfg = (appState._config as any).provider
+      cfg.name = result.providerName
+      cfg.model = result.model
+      cfg.apiKeyEnv = result.apiKeyEnv
+      cfg.apiBaseUrl = result.apiBaseUrl
+      cfg.verifySsl = result.verifySsl
+    }
+
+    // Save to kite.config.json
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const configPath = path.join(process.cwd(), 'kite.config.json')
+      const configData = {
+        provider: {
+          name: result.providerName,
+          model: result.model,
+          apiKeyEnv: result.apiKeyEnv,
+          ...(result.apiBaseUrl ? { apiBaseUrl: result.apiBaseUrl } : {}),
+          ...(result.verifySsl === false ? { verifySsl: false } : {}),
+        },
+        behavior: {
+          permissionMode: config.behavior.permissionMode,
+          maxTokens: config.behavior.maxTokens,
+        },
+      }
+      fs.writeFileSync(configPath, JSON.stringify(configData, null, 2) + '\n', 'utf-8')
+    } catch {
+      // Non-fatal
+    }
+
+    const sslNote = result.verifySsl === false ? '\n  SSL: verification disabled' : ''
+    addSystemMessage(
+      `Provider configured:\n  ${result.providerName} / ${result.model}` +
+      (result.apiBaseUrl ? `\n  URL: ${result.apiBaseUrl}` : '') +
+      sslNote +
+      '\n\nRestart Kite for changes to take full effect.',
+    )
+    setScreen('prompt')
+  }, [engine, config, addSystemMessage])
+
+  const handleSetupSkip = useCallback(() => {
     setScreen('prompt')
   }, [])
 
@@ -824,6 +885,14 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
           onSelect={handleInteractiveSelect}
           onCancel={handleInteractiveCancel}
           isActive={screen === 'interactive-command'}
+        />
+      )}
+
+      {/* Full provider setup wizard */}
+      {screen === 'setup' && (
+        <ProviderSetup
+          onComplete={handleSetupComplete}
+          onSkip={handleSetupSkip}
         />
       )}
 

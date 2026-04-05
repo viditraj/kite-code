@@ -168,6 +168,7 @@ export function getProviderItems(): CommandItem[] {
       meta: { model: 'mistral-large-latest', apiKeyEnv: 'MISTRAL_API_KEY', apiBaseUrl: '' } },
     { label: 'openrouter', value: 'openrouter', hint: 'Multi-model gateway (OPENROUTER_API_KEY)',
       meta: { model: 'anthropic/claude-sonnet-4-20250514', apiKeyEnv: 'OPENROUTER_API_KEY', apiBaseUrl: '' } },
+    { label: 'custom', value: '__setup__', hint: 'Custom / Self-Hosted endpoint (use /setup)', color: 'white' },
   ]
 }
 

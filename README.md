@@ -12,7 +12,7 @@
 
 ---
 
-Kite Code is a terminal-based AI coding assistant built with TypeScript and [Ink](https://github.com/vadimdemedes/ink). It connects to **any** LLM provider (Anthropic, OpenAI, Ollama, Groq, DeepSeek, Mistral, OpenRouter, or custom endpoints) and gives you Claude Code-level functionality with **zero telemetry**, **zero OAuth**, and **zero vendor lock-in**.
+Kite Code is a general-purpose AI terminal assistant built with TypeScript and [Ink](https://github.com/vadimdemedes/ink). It connects to **any** LLM provider (Anthropic, OpenAI, Ollama, Groq, DeepSeek, Mistral, OpenRouter, or custom endpoints) and gives you a powerful AI agent with web search, web browsing, shell access, file operations, and 29 built-in tools — with **zero telemetry**, **zero OAuth**, and **zero vendor lock-in**. Not just for coding — ask it anything.
 
 ## Features
 
