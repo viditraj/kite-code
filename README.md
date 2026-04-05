@@ -44,14 +44,21 @@ Kite Code is a terminal-based AI coding assistant built with TypeScript and [Ink
 ### Install from npm
 
 ```bash
-npm install -g @kite-code/cli
+npm install -g kite-code
+kite
+```
+
+### Install from GitHub
+
+```bash
+npm install -g git+https://github.com/viditraj/kite-code.git
 kite
 ```
 
 ### Install from source
 
 ```bash
-git clone https://github.com/kite-code/kite-code.git
+git clone https://github.com/viditraj/kite-code.git
 cd kite-code
 npm install
 npm run build

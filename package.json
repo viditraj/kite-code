@@ -1,5 +1,5 @@
 {
-  "name": "@kite-code/cli",
+  "name": "kite-code",
   "version": "0.1.0",
   "description": "Open-source AI coding CLI — zero telemetry, any LLM provider",
   "type": "module",
@@ -39,11 +39,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kite-code/kite-code.git"
+    "url": "https://github.com/viditraj/kite-code.git"
   },
-  "homepage": "https://github.com/kite-code/kite-code#readme",
+  "homepage": "https://github.com/viditraj/kite-code#readme",
   "bugs": {
-    "url": "https://github.com/kite-code/kite-code/issues"
+    "url": "https://github.com/viditraj/kite-code/issues"
   },
   "engines": {
     "node": ">=20.0.0"
