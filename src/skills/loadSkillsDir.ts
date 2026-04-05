@@ -328,6 +328,9 @@ export function loadSkillFromDir(
     type: 'prompt' as const,
     name: commandName,
     description: metadata.description || `Run skill: ${metadata.name}`,
+    argumentHint: metadata.arguments?.length
+      ? metadata.arguments.map(a => `<${a}>`).join(' ')
+      : undefined,
     source: metadata.source as PromptCommand['source'],
     contentLength: initialBody.length,
     progressMessage: `running ${metadata.name}`,

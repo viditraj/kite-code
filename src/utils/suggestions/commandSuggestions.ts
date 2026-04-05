@@ -25,6 +25,8 @@ export interface CommandSuggestion {
   aliases?: string[]
   /** Match score (0-1, higher is better) */
   score: number
+  /** Tag indicating source: 'skill', 'plugin', or undefined for built-in */
+  tag?: string
 }
 
 export type SuggestionType = 'command' | 'file' | 'none'
@@ -183,6 +185,9 @@ export function findSlashCommandPrefix(input: string): string | null {
 // ============================================================================
 
 function cmdToSuggestion(cmd: Command): CommandSuggestion {
+  const tag = cmd.loadedFrom === 'skills' ? 'skill'
+    : cmd.loadedFrom === 'plugin' ? 'plugin'
+    : undefined
   return {
     name: cmd.name,
     displayText: `/${cmd.name}`,
@@ -190,5 +195,6 @@ function cmdToSuggestion(cmd: Command): CommandSuggestion {
     argumentHint: cmd.argumentHint,
     aliases: cmd.aliases,
     score: 0,
+    tag,
   }
 }

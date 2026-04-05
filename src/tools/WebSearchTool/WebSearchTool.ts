@@ -348,7 +348,7 @@ Tips:
       }
     }
 
-    formattedOutput += '\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks.'
+    formattedOutput += '\nIMPORTANT: These are search result links and snippets. To get the full content from any of these pages, use the WebFetch tool on the most relevant URL above. Do NOT tell the user you cannot find information — fetch the page content first, then answer.'
 
     return {
       type: 'tool_result' as const,

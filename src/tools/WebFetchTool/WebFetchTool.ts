@@ -1,12 +1,14 @@
 /**
  * WebFetchTool — Fetch content from URLs.
  *
- * Implements the same patterns as Claude Code's WebFetchTool.ts:
+ * Ported from Claude Code's WebFetchTool:
  * - HTTP GET with streaming response
  * - URL validation (scheme, credentials, hostname)
  * - HTTP→HTTPS upgrade
  * - Response size limits
- * - Basic HTML→text conversion
+ * - HTML→Markdown conversion via Turndown (not regex stripping)
+ * - LRU cache with 15-minute TTL
+ * - Redirect handling
  * - Always read-only, concurrency-safe, deferred
  */
 
@@ -19,6 +21,9 @@ const MAX_CONTENT_LENGTH = 10 * 1024 * 1024 // 10MB
 const MAX_TEXT_LENGTH = 100_000 // chars
 const FETCH_TIMEOUT_MS = 60_000
 const MAX_URL_LENGTH = 2000
+const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
+const MAX_CACHE_SIZE = 50 * 1024 * 1024 // 50MB
+const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 const inputSchema = z.strictObject({
   url: z.string().url().describe('The URL to fetch content from'),
@@ -35,6 +40,10 @@ interface WebFetchOutput {
   result: string
   durationMs: number
 }
+
+// ============================================================================
+// URL validation
+// ============================================================================
 
 function validateUrl(url: string): string | null {
   if (url.length > MAX_URL_LENGTH) {
@@ -65,14 +74,41 @@ function upgradeToHttps(url: string): string {
   return url
 }
 
-function stripHtmlTags(html: string): string {
-  // Remove script and style tags with content
-  let text = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
-  // Remove HTML tags
+// ============================================================================
+// HTML → Markdown conversion via Turndown
+// ============================================================================
+
+let turndownInstance: any = null
+
+async function htmlToMarkdown(html: string): Promise<string> {
+  if (!turndownInstance) {
+    try {
+      const TurndownService = (await import('turndown')).default
+      turndownInstance = new TurndownService({
+        headingStyle: 'atx',
+        codeBlockStyle: 'fenced',
+        bulletListMarker: '-',
+      })
+      // Remove script and style content
+      turndownInstance.remove(['script', 'style', 'noscript', 'iframe', 'svg'])
+    } catch {
+      // Turndown not available — fall back to regex stripping
+      return stripHtmlFallback(html)
+    }
+  }
+
+  try {
+    return turndownInstance.turndown(html)
+  } catch {
+    return stripHtmlFallback(html)
+  }
+}
+
+/** Regex fallback when Turndown is unavailable */
+function stripHtmlFallback(html: string): string {
+  let text = html.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, '')
   text = text.replace(/<[^>]+>/g, ' ')
-  // Collapse whitespace
   text = text.replace(/\s+/g, ' ').trim()
-  // Decode common HTML entities
   text = text
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -82,6 +118,50 @@ function stripHtmlTags(html: string): string {
     .replace(/&nbsp;/g, ' ')
   return text
 }
+
+// ============================================================================
+// URL cache (LRU with TTL)
+// ============================================================================
+
+interface CacheEntry {
+  result: string
+  bytes: number
+  code: number
+  codeText: string
+  fetchedAt: number
+}
+
+const urlCache = new Map<string, CacheEntry>()
+let cacheSize = 0
+
+function getCached(url: string): CacheEntry | null {
+  const entry = urlCache.get(url)
+  if (!entry) return null
+  if (Date.now() - entry.fetchedAt > CACHE_TTL_MS) {
+    urlCache.delete(url)
+    cacheSize -= entry.result.length
+    return null
+  }
+  return entry
+}
+
+function setCache(url: string, entry: CacheEntry): void {
+  // Evict oldest entries if over size limit
+  while (cacheSize + entry.result.length > MAX_CACHE_SIZE && urlCache.size > 0) {
+    const oldest = urlCache.keys().next().value
+    if (oldest) {
+      const old = urlCache.get(oldest)
+      if (old) cacheSize -= old.result.length
+      urlCache.delete(oldest)
+    }
+  }
+  urlCache.set(url, entry)
+  cacheSize += entry.result.length
+}
+
+// ============================================================================
+// Tool definition
+// ============================================================================
 
 export const WebFetchTool = buildTool({
   name: WEB_FETCH_TOOL_NAME,
@@ -100,7 +180,11 @@ export const WebFetchTool = buildTool({
 
 The URL must be a valid HTTP/HTTPS URL. HTTP URLs are automatically upgraded to HTTPS.
 The prompt parameter describes what information to extract from the page.
-Response content is limited to ${MAX_TEXT_LENGTH} characters.`
+HTML content is converted to clean Markdown with proper formatting preserved.
+Results are cached for 15 minutes.
+Response content is limited to ${MAX_TEXT_LENGTH.toLocaleString()} characters.
+
+Note: URLs requiring authentication (Google Docs, Confluence, Jira, private repos) will not work.`
   },
 
   isConcurrencySafe() {
@@ -142,19 +226,41 @@ Response content is limited to ${MAX_TEXT_LENGTH} characters.`
     const url = upgradeToHttps(input.url)
     const startTime = Date.now()
 
-    const timeout = setTimeout(() => context.abortController.abort(), FETCH_TIMEOUT_MS)
+    // Check cache first
+    const cached = getCached(url)
+    if (cached) {
+      return {
+        data: {
+          url,
+          bytes: cached.bytes,
+          code: cached.code,
+          codeText: cached.codeText,
+          result: cached.result,
+          durationMs: Date.now() - startTime,
+        },
+      }
+    }
+
+    const abortController = new AbortController()
+    const timeout = setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS)
+
+    // Also abort if the parent context aborts
+    const onParentAbort = () => abortController.abort()
+    context.abortController.signal.addEventListener('abort', onParentAbort)
 
     try {
       const response = await fetch(url, {
-        signal: context.abortController.signal,
+        signal: abortController.signal,
         headers: {
-          'Accept': 'text/markdown, text/html, */*',
-          'User-Agent': 'Kite/1.0 (AI Coding Assistant)',
+          'Accept': 'text/html, text/markdown, application/json, text/plain, */*',
+          'User-Agent': USER_AGENT,
+          'Accept-Language': 'en-US,en;q=0.9',
         },
         redirect: 'follow',
       })
 
       clearTimeout(timeout)
+      context.abortController.signal.removeEventListener('abort', onParentAbort)
       const durationMs = Date.now() - startTime
 
       if (!response.ok) {
@@ -186,18 +292,27 @@ Response content is limited to ${MAX_TEXT_LENGTH} characters.`
         }
       }
 
-      let text = new TextDecoder().decode(buffer)
+      let text = new TextDecoder('utf-8', { fatal: false }).decode(buffer)
 
-      // Strip HTML if it looks like HTML
+      // Convert HTML to Markdown
       const contentType = response.headers.get('content-type') || ''
-      if (contentType.includes('text/html') && text.trim().startsWith('<')) {
-        text = stripHtmlTags(text)
+      if (contentType.includes('text/html') || (text.trim().startsWith('<') && text.includes('</html>'))) {
+        text = await htmlToMarkdown(text)
       }
 
       // Truncate
       if (text.length > MAX_TEXT_LENGTH) {
         text = text.slice(0, MAX_TEXT_LENGTH) + `\n\n... (truncated at ${MAX_TEXT_LENGTH.toLocaleString()} chars)`
       }
+
+      // Cache the result
+      setCache(url, {
+        result: text,
+        bytes,
+        code: response.status,
+        codeText: response.statusText,
+        fetchedAt: Date.now(),
+      })
 
       return {
         data: {
@@ -211,6 +326,7 @@ Response content is limited to ${MAX_TEXT_LENGTH} characters.`
       }
     } catch (err: unknown) {
       clearTimeout(timeout)
+      context.abortController.signal.removeEventListener('abort', onParentAbort)
       const durationMs = Date.now() - startTime
       const error = err instanceof Error ? err : new Error(String(err))
       const message = error.name === 'AbortError'

@@ -303,19 +303,23 @@ export function PromptInput({
   const autocompleteDropdown = acVisible ? (
     <Box flexDirection="column" marginLeft={2}>
       <Box>
-        <Text dimColor>{'─'.repeat(40)}</Text>
+        <Text dimColor>{'─'.repeat(50)}</Text>
       </Box>
       {acSuggestions.map((suggestion, index) => {
         const isSelected = index === acSelectedIndex
+        const tag = suggestion.tag
         return (
           <Box key={suggestion.name}>
             <Text color={isSelected ? 'cyan' : undefined}>{isSelected ? '> ' : '  '}</Text>
-            <Box width={20}>
+            <Box width={22}>
               <Text color={isSelected ? 'cyan' : 'white'} bold={isSelected}>
                 /{suggestion.name}
               </Text>
             </Box>
-            <Text dimColor> {suggestion.description}</Text>
+            {tag && (
+              <Text color="yellow">[{tag}] </Text>
+            )}
+            <Text dimColor>{suggestion.description}</Text>
           </Box>
         )
       })}

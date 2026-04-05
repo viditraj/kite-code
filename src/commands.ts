@@ -29,6 +29,8 @@ export type {
 } from './types/command.js'
 export { getCommandName, isCommandEnabled } from './types/command.js'
 
+import { getSkillDirCommands, getDynamicSkills } from './skills/loadSkillsDir.js'
+
 // ============================================================================
 // Built-in commands
 // ============================================================================
@@ -674,33 +676,46 @@ function createBuiltinCommands(): Command[] {
     {
       type: 'local',
       name: 'skills',
-      description: 'List available skills',
+      description: 'List available skills (invoke with /skill-name)',
       supportsNonInteractive: true,
       async call(_args, _context) {
-        const fs = await import('fs')
-        const path = await import('path')
+        const { getSkillDirCommands: loadSkills } = await import('./skills/loadSkillsDir.js')
         const cwd = process.cwd()
-        const skillDirs = [
-          path.join(cwd, '.kite', 'skills'),
-          path.join(cwd, '.claude', 'skills'),
-        ]
-        const skills: string[] = []
-        for (const dir of skillDirs) {
-          if (fs.existsSync(dir)) {
-            const entries = fs.readdirSync(dir, { withFileTypes: true })
-            for (const entry of entries) {
-              if (entry.isDirectory()) {
-                skills.push(entry.name)
-              }
-            }
+        const skillCommands = loadSkills(cwd)
+
+        if (skillCommands.length === 0) {
+          return {
+            type: 'text',
+            value: [
+              'No skills found.',
+              '',
+              'Create a skill:',
+              '  mkdir -p .kite/skills/my-skill',
+              '  echo "---',
+              '  name: my-skill',
+              '  description: What this skill does',
+              '  ---',
+              '  Your prompt template here" > .kite/skills/my-skill/SKILL.md',
+              '',
+              'Then invoke with: /my-skill',
+            ].join('\n'),
           }
         }
-        return {
-          type: 'text',
-          value: skills.length > 0
-            ? `Available skills:\n${skills.map(s => `  - ${s}`).join('\n')}`
-            : 'No skills found. Create skills in .kite/skills/ directory.',
+
+        const lines = ['Available skills:', '']
+        for (const cmd of skillCommands) {
+          const args = cmd.argumentHint ? ` ${cmd.argumentHint}` : ''
+          const source = (cmd as any).source === 'project' ? '' : ` (${(cmd as any).source})`
+          lines.push(`  /${cmd.name}${args}${source}`)
+          if (cmd.description) {
+            lines.push(`    ${cmd.description}`)
+          }
         }
+        lines.push('')
+        lines.push('Invoke a skill by typing /<skill-name> [arguments]')
+        lines.push('Skills also appear in / autocomplete suggestions.')
+
+        return { type: 'text', value: lines.join('\n') }
       },
     },
 
@@ -1328,12 +1343,49 @@ function createBuiltinCommands(): Command[] {
 let cachedCommands: Command[] | null = null
 
 /**
- * Get all available commands (built-in + skills + MCP).
- * Memoized for performance.
+ * Get all available commands (built-in + skills + dynamic skills).
+ * Memoized for performance. Call clearCommandsCache() to refresh.
  */
 export function getCommands(): Command[] {
   if (cachedCommands) return cachedCommands
-  cachedCommands = createBuiltinCommands()
+
+  const builtin = createBuiltinCommands()
+
+  // Load skills from .kite/skills/, .claude/skills/, ~/.kite/skills/
+  let skillCommands: Command[] = []
+  try {
+    skillCommands = getSkillDirCommands(process.cwd())
+  } catch {
+    // Skill loading failed — non-fatal
+  }
+
+  // Load dynamically registered skills
+  let dynamicCommands: Command[] = []
+  try {
+    dynamicCommands = getDynamicSkills()
+  } catch {
+    // Dynamic skill loading failed — non-fatal
+  }
+
+  // Merge: built-in first, then skills (skills don't override built-ins)
+  const seen = new Set(builtin.map(c => c.name))
+  const merged = [...builtin]
+
+  for (const cmd of skillCommands) {
+    if (!seen.has(cmd.name)) {
+      seen.add(cmd.name)
+      merged.push(cmd)
+    }
+  }
+
+  for (const cmd of dynamicCommands) {
+    if (!seen.has(cmd.name)) {
+      seen.add(cmd.name)
+      merged.push(cmd)
+    }
+  }
+
+  cachedCommands = merged
   return cachedCommands
 }
 
