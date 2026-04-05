@@ -1,6 +1,6 @@
 {
   "name": "@viditraj/kite-code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open-source AI coding CLI — zero telemetry, any LLM provider",
   "type": "module",
   "main": "dist/entrypoints/cli.js",
