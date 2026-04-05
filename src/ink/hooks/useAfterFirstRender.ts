@@ -16,5 +16,5 @@ export function useAfterFirstRender(callback?: () => void): void {
       )
     }
     callback?.()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 }

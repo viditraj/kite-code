@@ -2,3 +2,29 @@ node_modules/
 dist/
 .playwright-mcp/
 screenshots/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test artifacts
+*.png
+*.webp
+*.jpg
+*.jpeg
+test.txt
+story.txt
+
+# Session artifacts
+kite-conversation-*.md
+
+# Internal planning docs (not shipped)
+KITE_TS_PLAN.md
+PORT_TRACKER.md
+SOURCE_MAPPING.md

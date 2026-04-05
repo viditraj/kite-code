@@ -16,7 +16,8 @@ Kite is a 1:1 reimplementation of Claude Code in TypeScript, targeting Node.js 2
 
 - Source: `/root/claude-code/src/` (reference)
 - Target: `/root/kite-ts/` (implementation)
-- Plan: `/root/kite-ts/KITE_TS_PLAN.md`
+- Plan: `/root/kite-ts/IMPLEMENTATION_PLAN.md`
+- Architecture: `/root/kite-ts/ARCHITECTURE.md`
 
 ## What's Different From Claude Code
 
@@ -31,10 +32,39 @@ Kite is a 1:1 reimplementation of Claude Code in TypeScript, targeting Node.js 2
 ```bash
 cd /root/kite-ts
 npm install
-npm run build
-npm test
-npm start -- --help
+npm run build       # TypeScript → dist/
+npm test            # 692 tests, 32 test files
+npm start -- --help # Run from source via tsx
 ```
+
+## Current State
+
+- **221 source files**, **51,936 lines**
+- **29 tools**, **48 commands**, **14 hooks**, **70+ components**
+- **692 tests passing**, **0 TypeScript errors**
+- **6 themes**, **8 LLM providers**
+
+### Key Modules
+
+| Module | Path | Description |
+|--------|------|-------------|
+| CLI entry | `src/entrypoints/cli.ts` | Boot sequence, arg parsing, onboarding |
+| REPL | `src/screens/REPL.tsx` | Ink-based interactive terminal UI |
+| Query loop | `src/query.ts` | Async generator with streaming + tool execution |
+| QueryEngine | `src/QueryEngine.ts` | Orchestrates conversations |
+| Commands | `src/commands.ts` | 48 slash commands |
+| Tools | `src/tools/` | 29 tool implementations |
+| Providers | `src/providers/` | Anthropic + OpenAI-compatible adapters |
+| Hooks | `src/ink/hooks/` | 14 React hooks |
+| State | `src/state/` | AppStateStore + persistence + React context |
+| Plugins | `src/plugins/pluginLoader.ts` | Plugin manifest + ESM loading |
+| Skills | `src/skills/loadSkillsDir.ts` | SKILL.md parsing + registration |
+| Session | `src/utils/session.ts` | JSONL session persistence |
+| File history | `src/utils/fileHistory.ts` | Snapshot backup/restore |
+| Bash security | `src/tools/BashTool/` | 6 validation layers |
+| Autocomplete | `src/utils/suggestions/` | Command fuzzy matching |
+| MCP | `src/services/mcp/` | MCP server management |
+| Compaction | `src/services/compact/` | Auto-compact + microcompact |
 
 ## Browser Integration
 

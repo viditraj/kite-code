@@ -7,7 +7,7 @@
   <img alt="Node.js 20+" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen">
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-5.8-blue">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green">
-  <img alt="Tests: 626" src="https://img.shields.io/badge/tests-626%20passing-brightgreen">
+  <img alt="Tests: 692" src="https://img.shields.io/badge/tests-692%20passing-brightgreen">
 </p>
 
 ---
@@ -16,16 +16,22 @@ Kite Code is a terminal-based AI coding assistant built with TypeScript and [Ink
 
 ## Features
 
-- **31 built-in tools** — Bash (async spawn), file read/write/edit, grep, glob, web search (DuckDuckGo), web fetch, agent spawning, todo management, LSP diagnostics, and more
-- **47 slash commands** — `/model`, `/provider`, `/context`, `/stats`, `/effort`, `/theme`, `/rewind`, `/sandbox`, and more — many with interactive arrow-key pickers
+- **29 built-in tools** — Bash, file read/write/edit, grep, glob, web search, web fetch, agent spawning, todo management, LSP diagnostics, MCP integration, and more
+- **48 slash commands** — `/model`, `/provider`, `/context`, `/stats`, `/effort`, `/theme`, `/rewind`, `/rename`, `/sandbox`, and more — many with interactive arrow-key pickers
+- **Command autocomplete** — type `/` and get a fuzzy-matched dropdown with arrow-key navigation, Tab to apply, ghost text for inline completion
+- **Message timestamps** — relative timestamps ("just now", "2m ago", "1h ago") on user and assistant messages
 - **8 LLM providers** — Anthropic, OpenAI, Ollama, Groq, DeepSeek, Mistral, OpenRouter, or any OpenAI-compatible endpoint
 - **6 color themes** — dark, light, colorblind-friendly, ANSI-only
 - **Markdown rendering** — bold, italic, code blocks with syntax highlighting, tables with box-drawing borders, lists, headings, links
 - **Session persistence** — auto-saves to `~/.kite/sessions/`, resume with `--continue` or `--resume`
 - **File history snapshots** — auto-backups before every file write/edit, restore with `/rewind`
-- **Token tracking** — live context window usage in the status bar, `/context` for detailed breakdown
-- **Permission system** — Allow / Always allow / Deny per tool, with session memory
-- **Provider setup wizard** — guided first-run configuration with `--setup`
+- **Auto-compaction** — automatically compacts conversation when approaching context window limits
+- **Token tracking** — live context window usage in the status bar, `/context` for detailed breakdown with visual bar
+- **Permission system** — Allow / Always allow / Deny per tool, with session memory and per-tool permission dialogs
+- **Plugin system** — load custom tools, commands, and hooks from `.kite/plugins/`
+- **14 React hooks** — useElapsedTime, useHistorySearch, useDoublePress, useMinDisplayTime, useTimeout, useCancelRequest, and more
+- **Typed state management** — AppStateStore with React context, selectors, and disk persistence
+- **Provider setup wizard** — guided first-run onboarding with `--setup`
 - **Zero telemetry** — no analytics, no tracking, no GrowthBook, no Datadog
 
 ## Quick Start
@@ -35,13 +41,10 @@ Kite Code is a terminal-based AI coding assistant built with TypeScript and [Ink
 - **Node.js 20+** — [install](https://nodejs.org/)
 - An API key for your chosen LLM provider
 
-### Install (single command)
+### Install from npm
 
 ```bash
-# Install globally — gives you the `kite` command
 npm install -g @kite-code/cli
-
-# That's it! Run:
 kite
 ```
 
@@ -52,8 +55,7 @@ git clone https://github.com/kite-code/kite-code.git
 cd kite-code
 npm install
 npm run build
-npm link    # Makes `kite` available globally
-
+npm link
 kite
 ```
 
@@ -71,25 +73,20 @@ On first launch, Kite walks you through a setup wizard:
 
   Welcome to Kite Code!
 
-  Step 1: Choose a color theme → dark, light, colorblind, ANSI
-  Step 2: Configure your LLM provider → Anthropic, OpenAI, Ollama, etc.
-  Step 3: Security notes → review and continue
+  Step 1: Choose a color theme
+  Step 2: Configure your LLM provider
+  Step 3: Security notes
 ```
 
 The walkthrough saves your preferences to `~/.kite/config.json` (theme) and
-`kite.config.json` (provider). It only runs once. Re-run with `kite --setup`.
+`kite.config.json` (provider). It only runs once. Re-run anytime with `kite --setup`.
 
 Or configure manually:
 
 ```bash
-# Set your API key
-export ANTHROPIC_API_KEY="sk-ant-..."
-
-# Or for OpenAI
-export OPENAI_API_KEY="sk-..."
-
-# Or for local Ollama (no key needed)
-# Just start ollama serve
+export ANTHROPIC_API_KEY="sk-ant-..."   # Anthropic
+export OPENAI_API_KEY="sk-..."          # OpenAI
+# Ollama needs no key — just `ollama serve`
 ```
 
 ## Configuration
@@ -110,7 +107,7 @@ Kite uses `kite.config.json` in your project directory:
 }
 ```
 
-### Config Loading Order (highest to lowest priority)
+### Config Loading Order
 
 1. CLI flags (`--model`, `--provider`, etc.)
 2. Project config (`./kite.config.json`)
@@ -159,7 +156,7 @@ Kite uses `kite.config.json` in your project directory:
   }
 }
 ```
-No API key needed. Just run `ollama serve` and `ollama pull llama3.1`.
+No API key needed. Run `ollama serve` and `ollama pull llama3.1`.
 </details>
 
 <details>
@@ -182,38 +179,19 @@ Any OpenAI-compatible endpoint works.
 ## CLI Usage
 
 ```bash
-# Interactive mode (default)
-kite
-
-# Non-interactive mode (print and exit)
-kite -p "explain this error" < error.log
-
-# Resume last session
-kite --continue
-
-# Resume specific session by ID
-kite --resume abc12345
-
-# Browse and pick a session interactively
-kite --resume
-
-# Search sessions then pick
-kite --resume "refactor auth"
-
-# Use a specific model
-kite --model gpt-4o
-
-# System diagnostics
-kite --doctor
-
-# Provider setup wizard
-kite --setup
-
-# Show help
-kite --help
+kite                              # Interactive REPL (default)
+kite -p "explain this error"      # Non-interactive, print and exit
+kite --continue                   # Resume last session
+kite --resume abc12345            # Resume specific session
+kite --resume                     # Interactive session picker
+kite --resume "refactor auth"     # Search sessions then pick
+kite --model gpt-4o              # Override model
+kite --doctor                     # System diagnostics
+kite --setup                      # Provider setup wizard
+kite --help                       # Show help
 ```
 
-### All CLI Flags
+### CLI Flags
 
 | Flag | Description |
 |------|-------------|
@@ -224,46 +202,58 @@ kite --help
 | `--provider <name>` | Override provider name |
 | `--permission-mode <mode>` | Set permission mode |
 | `--system-prompt <text>` | Custom system prompt |
+| `--append-system-prompt <text>` | Append to default system prompt |
 | `--max-tokens <n>` | Max output tokens |
+| `--max-budget-usd <n>` | Max session cost in USD |
 | `--config <path>` | Path to config file |
+| `--allowed-tools <tools...>` | Tools to allow |
+| `--disallowed-tools <tools...>` | Tools to deny |
+| `--mcp-config <configs...>` | MCP server config files |
 | `--doctor` | Run system diagnostics |
 | `--setup` | Launch provider setup wizard |
 | `-d, --debug` | Enable debug logging |
 | `--verbose` | Verbose output |
+| `--bare` | Minimal mode: skip hooks, plugins, auto-memory |
 
-## Commands Reference
+## Commands
 
-Type `/help` in the REPL to see all commands with an interactive picker.
+Type `/` and get autocomplete suggestions. Type `/help` for the interactive command picker.
 
 ### Navigation & Config
 
 | Command | Description |
 |---------|-------------|
-| `/help` | Interactive command picker |
-| `/model [name]` | Show or switch AI model |
-| `/provider [name]` | Show or switch LLM provider |
+| `/help` | Interactive command picker with arrow-key navigation |
+| `/model [name]` | Show or switch AI model (interactive picker when no args) |
+| `/provider [name]` | Show or switch LLM provider (interactive picker when no args) |
 | `/setup` | Launch provider setup wizard |
-| `/mode [mode]` | Change permission mode |
-| `/effort [level]` | Set effort level (low/medium/high) |
-| `/theme` | Change color theme (6 themes) |
-| `/output-style [style]` | Set verbosity (verbose/concise/brief) |
+| `/mode [mode]` | Change permission mode (interactive picker when no args) |
+| `/effort [level]` | Set effort level: low / medium / high |
+| `/theme [name]` | Change color theme (interactive picker when no args) |
+| `/output-style [style]` | Set verbosity: verbose / concise / brief |
 | `/thinking` | Toggle thinking/reasoning display |
 | `/vim` | Toggle vim keybinding mode |
+| `/fast` | Toggle fast mode (use faster model) |
+| `/debug` | Toggle debug logging |
+| `/verbose` | Toggle verbose output |
 
 ### Session & Context
 
 | Command | Description |
 |---------|-------------|
 | `/context` | Token usage visualization with progress bar |
-| `/stats` | Session statistics (duration, tokens, memory) |
-| `/cost` | Session cost breakdown |
+| `/stats` | Session statistics (duration, tokens, memory, model) |
+| `/cost` | Session cost breakdown (input/output/cache tokens) |
 | `/usage` | API usage statistics |
 | `/clear` | Clear conversation history |
-| `/compact` | Compact conversation to save context |
+| `/compact [instructions]` | Compact conversation to save context |
 | `/rewind` | Undo last user+assistant exchange |
 | `/summary` | Ask the LLM to summarize the conversation |
+| `/rename <name>` | Rename the current session |
 | `/export [file]` | Export conversation to markdown |
 | `/resume [id]` | Resume a previous session |
+| `/session` | Show session information |
+| `/copy` | Copy last response to clipboard |
 
 ### Tools & System
 
@@ -277,62 +267,64 @@ Type `/help` in the REPL to see all commands with an interactive picker.
 | `/diff` | Show git changes |
 | `/branch [name]` | Show or switch git branch |
 | `/files` | List modified files |
-| `/mcp` | Show MCP server status |
+| `/mcp` | Show MCP server status and tools |
 | `/skills` | List available skills |
+| `/agents` | List available agent types |
+| `/tasks` | Show background tasks |
+| `/hooks` | Show configured hooks |
 | `/status` | System status |
 | `/keybindings` | Keyboard shortcuts |
+| `/memory` | Show AGENTS.md / CLAUDE.md memory files |
+| `/review [scope]` | Review code changes |
+| `/feedback <text>` | Send feedback |
+| `/release-notes` | Show release notes |
+| `/exit` | Exit Kite |
 
 ## Tools
 
-Kite has **31 built-in tools** that the AI can use:
+Kite has **29 built-in tools** that the AI can use:
 
-### Core File Operations
 | Tool | Description | Permission |
 |------|-------------|------------|
-| `Bash` | Execute shell commands (async spawn) | Ask |
-| `Read` | Read files, directories | Auto-allow |
+| `Bash` | Execute shell commands (async spawn with streaming) | Ask |
+| `Read` | Read files and directories with line ranges | Auto-allow |
 | `Write` | Create or overwrite files | Ask |
-| `Edit` | Modify files (exact string replacement) | Ask |
+| `Edit` | Modify files via exact string replacement | Ask |
 | `Grep` | Search file contents (ripgrep) | Auto-allow |
-| `Glob` | Find files by pattern | Auto-allow |
-
-### Web & Network
-| Tool | Description | Permission |
-|------|-------------|------------|
-| `WebSearch` | Search the web (DuckDuckGo) | Auto-allow |
+| `Glob` | Find files by glob pattern | Auto-allow |
+| `WebSearch` | Search the web via DuckDuckGo | Auto-allow |
 | `WebFetch` | Fetch and extract URL content | Ask |
-
-### Agent & Workflow
-| Tool | Description | Permission |
-|------|-------------|------------|
 | `Agent` | Spawn subagents for delegated tasks | Auto-allow |
 | `TodoWrite` | Manage session task checklist | Auto-allow |
-| `AskUserQuestion` | Prompt user with questions | Auto-allow |
-| `EnterPlanMode` | Switch to planning mode | Auto-allow |
-| `ExitPlanMode` | Exit planning mode | Auto-allow |
-
-### Advanced
-| Tool | Description | Permission |
-|------|-------------|------------|
+| `AskUserQuestion` | Prompt user with structured questions | Auto-allow |
 | `LSP` | Language server diagnostics (TS/JS/Python/Rust) | Auto-allow |
 | `NotebookEdit` | Edit Jupyter notebooks | Ask |
-| `ToolSearch` | Search for deferred tools | Auto-allow |
-| `WebSearch` | Search internet (DuckDuckGo) | Auto-allow |
 | `PowerShell` | Execute PowerShell commands (Windows) | Ask |
-| `Monitor` | System monitoring (CPU/memory/disk) | Auto-allow |
+| `Monitor` | System resource monitoring (CPU/memory/disk) | Auto-allow |
 | `Config` | Read/write kite.config.json | Auto-allow |
+| `ToolSearch` | Search for deferred tools | Auto-allow |
+| `Skill` | Execute custom skills from .kite/skills/ | Auto-allow |
+| `MCPTool` | Call tools on connected MCP servers | Ask |
+| `ListMcpResources` | List resources from MCP servers | Auto-allow |
+| `ReadMcpResource` | Read a specific MCP resource | Auto-allow |
+| `SendMessage` | Send messages to background agents | Auto-allow |
+| `ScheduleCron` | Schedule recurring tasks | Ask |
+| `WorktreeTool` | Manage git worktrees | Ask |
+| `VerifyPlan` | Verify a plan before execution | Auto-allow |
+| `PlanMode` | Enter/exit plan mode | Auto-allow |
 | `Sleep` | Delay execution | Auto-allow |
-| `Skill` | Execute custom skills | Auto-allow |
+| `TaskTools` | Manage background tasks | Auto-allow |
+| `SyntheticOutput` | Generate synthetic tool output | Auto-allow |
 
 ## Themes
 
-Kite ships with 6 color themes. Switch with `/theme`:
+Switch with `/theme`:
 
 | Theme | Description |
 |-------|-------------|
 | `dark` | Default — cyan/magenta on dark background |
 | `light` | Blue/magenta on light background |
-| `dark-colorblind` | Deuteranopia-friendly (orange replaces red, blue replaces green) |
+| `dark-colorblind` | Deuteranopia-friendly (orange/blue palette) |
 | `light-colorblind` | Light variant of colorblind theme |
 | `dark-ansi` | Basic 8 ANSI colors only |
 | `light-ansi` | Light variant with basic ANSI colors |
@@ -343,10 +335,9 @@ Kite asks before executing tools that modify files or run commands:
 
 ```
 ────────────────────────────────────────────────────────────
-⚡ Bash — command: npm install lodash
-  Kite wants to use Bash, but you haven't granted permission yet.
+  Bash — command: npm install lodash
 
- Allow (y)   Always allow (a)   Deny (n)
+  Allow (y)   Always allow (a)   Deny (n)
 ────────────────────────────────────────────────────────────
 ```
 
@@ -361,80 +352,136 @@ Set with `--permission-mode` or `/mode`:
 | Mode | Description |
 |------|-------------|
 | `default` | Ask for each tool use |
-| `acceptEdits` | Auto-accept file edits |
-| `plan` | Planning mode (no execution) |
-| `bypassPermissions` | Allow all tools |
-| `dontAsk` | Never ask (deny if would ask) |
+| `acceptEdits` | Auto-accept file edits, still ask for Bash |
+| `plan` | Planning mode — explore only, no modifications |
+| `bypassPermissions` | Allow all tools without asking |
+| `dontAsk` | Never ask — deny anything that would ask |
+
+## Plugins
+
+Kite supports a plugin system for extending functionality:
+
+```
+.kite/plugins/
+  my-plugin/
+    plugin.json       # Plugin manifest
+    tools/            # Custom tool modules
+    commands/         # Custom command modules
+    hooks/            # Lifecycle hook handlers
+```
+
+### Plugin Manifest (`plugin.json`)
+
+```json
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "My custom plugin",
+  "author": "Your Name",
+  "tools": ["./tools/myTool.js"],
+  "commands": ["./commands/myCommand.js"],
+  "hooks": {
+    "onSessionStart": "./hooks/onStart.js"
+  }
+}
+```
+
+Plugins are loaded from both project-level (`.kite/plugins/`) and global (`~/.kite/plugins/`).
+
+## Skills
+
+Skills are markdown-based command extensions. Create `.kite/skills/<name>/SKILL.md`:
+
+```markdown
+---
+name: deploy
+description: Deploy the application
+arguments: [environment]
+allowedTools: [Bash, Read]
+---
+
+Deploy the application to the {{environment}} environment.
+Follow the deployment checklist in DEPLOY.md.
+```
+
+Then invoke with `/deploy production`.
+
+## MCP (Model Context Protocol)
+
+Kite integrates with MCP servers. A built-in Playwright server provides browser tools automatically.
+
+### Configure MCP Servers
+
+Add to `.mcp.json` or `kite.config.json`:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["-y", "my-mcp-server"]
+    }
+  }
+}
+```
+
+Use `/mcp` to check server status.
 
 ## Architecture
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design.
+
 ```
-kite-ts/
-├── src/
-│   ├── entrypoints/cli.ts      # CLI entry point
-│   ├── screens/REPL.tsx         # Main Ink REPL component
-│   ├── QueryEngine.ts           # Query orchestration
-│   ├── query.ts                 # Async generator query loop
-│   ├── Tool.ts                  # Tool interface + buildTool factory
-│   ├── tools.ts                 # Tool registry
-│   ├── commands.ts              # 47 slash commands
-│   ├── providers/               # LLM provider adapters
-│   │   ├── anthropic.ts         # Anthropic (Claude)
-│   │   ├── openai-compatible.ts # OpenAI, Ollama, Groq, etc.
-│   │   └── factory.ts           # Provider resolution
-│   ├── tools/                   # 31 tool implementations
-│   ├── components/              # 62+ Ink/React UI components
-│   │   ├── messages/            # Message rendering
-│   │   ├── permissions/         # Permission dialogs
-│   │   ├── design-system/       # 12 design system primitives
-│   │   ├── MarkdownText.tsx     # Markdown renderer
-│   │   ├── StatusBar.tsx        # Status bar
-│   │   └── LogoV2/              # Welcome screen
-│   ├── themes/                  # 6 color themes
-│   ├── services/                # MCP, compaction, API
-│   └── utils/                   # Config, permissions, format, session
-├── kite.config.json             # Project configuration
-├── package.json
-└── tsconfig.json
+src/
+├── entrypoints/cli.ts          # CLI boot sequence and arg parsing
+├── screens/REPL.tsx            # Ink-based interactive REPL
+├── screens/readlineRepl.ts     # Fallback readline REPL
+├── QueryEngine.ts              # Query orchestration
+├── query.ts                    # Async generator query loop
+├── Tool.ts                     # Tool interface + factory
+├── tools.ts                    # Tool registry
+├── commands.ts                 # 48 slash commands
+├── providers/                  # LLM provider adapters
+├── tools/                      # 29 tool implementations
+├── components/                 # 70+ Ink/React UI components
+├── ink/hooks/                  # 14 React hooks
+├── state/                      # AppStateStore + persistence
+├── plugins/                    # Plugin loader system
+├── services/                   # MCP, compaction, retry, browser
+├── themes/                     # 6 color themes
+├── skills/                     # Skill loading from SKILL.md
+├── utils/                      # Config, permissions, session, git, bash
+└── vim/                        # Vim mode (motions, operators, text objects)
 ```
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Run in development mode (with tsx, no build needed)
-npm start
-
-# Run with watch mode
-npm run dev
-
-# Build TypeScript
-npm run build
-
-# Run tests
-npm test
-
-# Type check only
-npm run typecheck
-
-# Run specific test file
-npx vitest run src/tools/tools.test.ts
+npm install           # Install dependencies
+npm start             # Run with tsx (no build needed)
+npm run dev           # Watch mode
+npm run build         # Build TypeScript to dist/
+npm test              # Run all 692 tests
+npm run typecheck     # Type check only
+npx vitest run src/path/to/test.ts   # Run specific test
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
 
 ## Project Stats
 
 | Metric | Value |
 |--------|-------|
-| Source files | 168 |
-| Source lines | 42,054 |
-| Tools | 31 |
-| Commands | 47 |
-| Components | 62+ |
+| Source files | 221 |
+| Source lines | 51,936 |
+| Tools | 29 |
+| Commands | 48 |
+| React hooks | 14 |
+| Components | 70+ |
 | Providers | 8 |
 | Themes | 6 |
-| Tests | 626 passing |
+| Tests | 692 passing |
+| Test files | 32 |
 | TypeScript errors | 0 |
 
 ## License
@@ -443,9 +490,11 @@ MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-Kite Code is inspired by [Claude Code](https://github.com/anthropics/claude-code) by Anthropic. It studies Claude Code's architecture and implements equivalent functionality as an open-source, provider-agnostic alternative.
+Kite Code is inspired by [Claude Code](https://docs.anthropic.com/en/docs/claude-code) by Anthropic. It studies Claude Code's architecture and implements equivalent functionality as an open-source, provider-agnostic alternative.
 
 Built with:
 - [Ink](https://github.com/vadimdemedes/ink) — React for CLIs
 - [Zod](https://github.com/colinhacks/zod) — Runtime validation
 - [Commander](https://github.com/tj/commander.js) — CLI argument parsing
+- [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) — Model Context Protocol
+- [Playwright MCP](https://github.com/playwright-community/playwright-mcp) — Browser automation

@@ -129,7 +129,7 @@ export function useHistorySearch(
     if (isSearching) {
       searchHistory(false)
     }
-  }, [historyQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [historyQuery])
 
   // Handle keyboard input during search
   useInput(
