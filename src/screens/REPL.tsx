@@ -771,25 +771,19 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
       cfg.verifySsl = result.verifySsl
     }
 
-    // Save to kite.config.json
+    // Save to ~/.kite/config.json (global config)
     try {
-      const fs = require('fs')
-      const path = require('path')
-      const configPath = path.join(process.cwd(), 'kite.config.json')
-      const configData = {
+      const { saveGlobalConfig } = require('../utils/config.js')
+      saveGlobalConfig((current: any) => ({
+        ...current,
         provider: {
           name: result.providerName,
           model: result.model,
           apiKeyEnv: result.apiKeyEnv,
-          ...(result.apiBaseUrl ? { apiBaseUrl: result.apiBaseUrl } : {}),
-          ...(result.verifySsl === false ? { verifySsl: false } : {}),
+          apiBaseUrl: result.apiBaseUrl || undefined,
+          verifySsl: result.verifySsl,
         },
-        behavior: {
-          permissionMode: config.behavior.permissionMode,
-          maxTokens: config.behavior.maxTokens,
-        },
-      }
-      fs.writeFileSync(configPath, JSON.stringify(configData, null, 2) + '\n', 'utf-8')
+      }))
     } catch {
       // Non-fatal
     }

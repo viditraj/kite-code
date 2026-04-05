@@ -535,7 +535,7 @@ async function runProviderSetup(config: KiteConfig): Promise<{
 // ============================================================================
 
 /**
- * Save the current config to kite.config.json in the current directory.
+ * Save the current config to ~/.kite/config.json (global config).
  */
 function saveConfigFile(config: KiteConfig): void {
   const configData = {
@@ -543,8 +543,8 @@ function saveConfigFile(config: KiteConfig): void {
       name: config.provider.name,
       model: config.provider.model,
       apiKeyEnv: config.provider.apiKeyEnv,
-      ...(config.provider.apiBaseUrl ? { apiBaseUrl: config.provider.apiBaseUrl } : {}),
-      ...(config.provider.verifySsl === false ? { verifySsl: false } : {}),
+      apiBaseUrl: config.provider.apiBaseUrl || undefined,
+      verifySsl: config.provider.verifySsl,
       ...(config.provider.extraHeaders ? { extraHeaders: config.provider.extraHeaders } : {}),
       ...(config.provider.extraPayload ? { extraPayload: config.provider.extraPayload } : {}),
     },
@@ -554,10 +554,12 @@ function saveConfigFile(config: KiteConfig): void {
     },
   }
 
-  const filePath = join(process.cwd(), 'kite.config.json')
+  // Save to ~/.kite/config.json (global config — not CWD)
   try {
-    writeFileSync(filePath, JSON.stringify(configData, null, 2) + '\n', 'utf-8')
-    console.log(`\nConfiguration saved to ${filePath}\n`)
+    saveGlobalConfig(current => ({
+      ...current,
+      ...configData,
+    }))
   } catch (err) {
     console.error(`Failed to save config: ${(err as Error).message}`)
   }

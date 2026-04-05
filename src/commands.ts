@@ -1244,10 +1244,9 @@ function createBuiltinCommands(): Command[] {
 
         // No args — show current settings
         if (!setting) {
-          const fs = await import('fs')
+          const os = await import('os')
           const path = await import('path')
-          const configPath = path.join(process.cwd(), 'kite.config.json')
-          const hasConfigFile = fs.existsSync(configPath)
+          const globalConfigPath = path.join(os.homedir(), '.kite', 'config.json')
 
           const lines = [
             'Provider Settings:',
@@ -1265,7 +1264,7 @@ function createBuiltinCommands(): Command[] {
             '  /provider-settings apiKeyEnv MY_CUSTOM_KEY',
             '  /provider-settings name ollama',
             '',
-            `Config file: ${hasConfigFile ? configPath : '(not found — changes are session-only)'}`,
+            `Config file: ${globalConfigPath}`,
           ]
           return { type: 'text', value: lines.join('\n') }
         }
@@ -1298,28 +1297,25 @@ function createBuiltinCommands(): Command[] {
           provider[key] = value
         }
 
-        // Also save to kite.config.json if it exists
+        // Save to ~/.kite/config.json (global config)
         try {
-          const fs = await import('fs')
-          const path = await import('path')
-          const configPath = path.join(process.cwd(), 'kite.config.json')
-          if (fs.existsSync(configPath)) {
-            const raw = fs.readFileSync(configPath, 'utf-8')
-            const configData = JSON.parse(raw)
-            if (!configData.provider) configData.provider = {}
-            if (setting === 'verifyssl') {
-              configData.provider.verifySsl = provider[key]
-            } else {
-              configData.provider[key] = value
+          const { saveGlobalConfig } = await import('./utils/config.js')
+          saveGlobalConfig((current: any) => {
+            const prev = (current.provider ?? {}) as Record<string, unknown>
+            return {
+              ...current,
+              provider: {
+                ...prev,
+                [key]: provider[key],
+              },
             }
-            fs.writeFileSync(configPath, JSON.stringify(configData, null, 2) + '\n', 'utf-8')
-            return { type: 'text', value: `${key} set to: ${provider[key]}\nSaved to ${configPath}\nNote: Restart Kite for changes to take full effect.` }
-          }
+          })
+          return { type: 'text', value: `${key} set to: ${provider[key]}\nSaved to ~/.kite/config.json\nNote: Restart Kite for changes to take full effect.` }
         } catch {
-          // Config file save failed — non-fatal
+          // Config save failed — non-fatal
         }
 
-        return { type: 'text', value: `${key} set to: ${provider[key]} (session only — no kite.config.json found)` }
+        return { type: 'text', value: `${key} set to: ${provider[key]} (session only — config save failed)` }
       },
     },
   ]
