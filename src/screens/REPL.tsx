@@ -61,6 +61,7 @@ import {
 } from '../utils/session.js'
 import { initFileHistory } from '../utils/fileHistory.js'
 import { getGitBranch } from '../utils/format.js'
+import { saveGlobalConfig } from '../utils/config.js'
 import {
   getCommands,
   findCommand,
@@ -773,8 +774,7 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
 
     // Save to ~/.kite/config.json (global config)
     try {
-      const { saveGlobalConfig } = require('../utils/config.js')
-      saveGlobalConfig((current: any) => ({
+      saveGlobalConfig((current) => ({
         ...current,
         provider: {
           name: result.providerName,
