@@ -1,0 +1,1 @@
+{"version":3,"file":"TokenWarning.d.ts","sourceRoot":"","sources":["../../../src/components/messages/TokenWarning.tsx"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,MAAM,OAAO,CAAA;AAOzB,MAAM,WAAW,iBAAiB;IAChC,WAAW,EAAE,MAAM,CAAA;IACnB,SAAS,EAAE,MAAM,CAAA;CAClB;AAiCD,eAAO,MAAM,YAAY,EAAE,KAAK,CAAC,EAAE,CAAC,iBAAiB,CA2CpD,CAAA;AAED,eAAe,YAAY,CAAA"}

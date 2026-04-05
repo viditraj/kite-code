@@ -1,0 +1,1 @@
+{"version":3,"file":"MessageTimestamp.d.ts","sourceRoot":"","sources":["../../../src/components/messages/MessageTimestamp.tsx"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAmB,MAAM,OAAO,CAAA;AAQvC,MAAM,WAAW,qBAAqB;IACpC,SAAS,EAAE,MAAM,CAAA;CAClB;AAgCD,eAAO,MAAM,gBAAgB,EAAE,KAAK,CAAC,EAAE,CAAC,qBAAqB,CAa5D,CAAA;AAED,eAAe,gBAAgB,CAAA"}
