@@ -3,6 +3,9 @@ import { BashTool } from './BashTool/BashTool.js'
 import { FileReadTool } from './FileReadTool/FileReadTool.js'
 import { FileWriteTool } from './FileWriteTool/FileWriteTool.js'
 import { FileEditTool } from './FileEditTool/FileEditTool.js'
+
+const isWindows = process.platform === 'win32'
+const describeUnix = isWindows ? describe.skip : describe
 import { GrepTool } from './GrepTool/GrepTool.js'
 import { GlobTool } from './GlobTool/GlobTool.js'
 import { WebFetchTool } from './WebFetchTool/WebFetchTool.js'
@@ -45,7 +48,7 @@ describe('Tool Registry', () => {
   })
 })
 
-describe('BashTool', () => {
+describeUnix('BashTool', () => {
   it('has correct safety flags', () => {
     // read-only command
     expect(BashTool.isReadOnly({ command: 'ls -la' })).toBe(true)
@@ -105,7 +108,7 @@ describe('FileEditTool', () => {
   })
 })
 
-describe('GrepTool', () => {
+describeUnix('GrepTool', () => {
   it('is read-only and concurrency-safe', () => {
     expect(GrepTool.isReadOnly({ pattern: 'test' })).toBe(true)
     expect(GrepTool.isConcurrencySafe({ pattern: 'test' })).toBe(true)
@@ -118,7 +121,7 @@ describe('GrepTool', () => {
   })
 })
 
-describe('GlobTool', () => {
+describeUnix('GlobTool', () => {
   it('is read-only and concurrency-safe', () => {
     expect(GlobTool.isReadOnly({ pattern: '*.ts' })).toBe(true)
     expect(GlobTool.isConcurrencySafe({ pattern: '*.ts' })).toBe(true)

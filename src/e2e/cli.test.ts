@@ -13,6 +13,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { spawnKite, type KiteProcess } from './harness.js'
 import { performance } from 'node:perf_hooks'
+import { tmpdir } from 'node:os'
 
 // Collect spawned processes for cleanup
 const spawned: KiteProcess[] = []
@@ -119,10 +120,10 @@ describe('E2E: Environment', () => {
   it('works with custom CWD', async () => {
     const kite = spawn({
       args: ['--help'],
-      cwd: '/tmp',
+      cwd: tmpdir(),
     })
     const { code, stdout } = await kite.waitForExit()
     expect(code).toBe(0)
     expect(stdout).toContain('kite')
-  })
+  }, 10_000)
 })

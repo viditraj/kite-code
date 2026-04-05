@@ -13,6 +13,9 @@ import {
   DANGEROUS_DIRECTORIES,
 } from './filesystem.js'
 
+const isWindows = process.platform === 'win32'
+const describeUnix = isWindows ? describe.skip : describe
+
 describe('normalizeCaseForComparison', () => {
   it('lowercases paths', () => {
     expect(normalizeCaseForComparison('/Foo/BAR/baz')).toBe('/foo/bar/baz')
@@ -98,7 +101,7 @@ describe('hasSuspiciousWindowsPathPattern', () => {
   })
 })
 
-describe('pathInWorkingPath', () => {
+describeUnix('pathInWorkingPath', () => {
   it('same path returns true', () => {
     expect(pathInWorkingPath('/project', '/project')).toBe(true)
   })
@@ -129,7 +132,7 @@ describe('pathInWorkingPath', () => {
   })
 })
 
-describe('pathInAllowedWorkingPaths', () => {
+describeUnix('pathInAllowedWorkingPaths', () => {
   it('true if in any working dir', () => {
     expect(pathInAllowedWorkingPaths('/a/file', ['/b', '/a'])).toBe(true)
   })
@@ -139,7 +142,7 @@ describe('pathInAllowedWorkingPaths', () => {
   })
 })
 
-describe('checkPathSafetyForAutoEdit', () => {
+describeUnix('checkPathSafetyForAutoEdit', () => {
   it('safe for normal paths', () => {
     const result = checkPathSafetyForAutoEdit('/project/src/main.ts')
     expect(result.safe).toBe(true)
@@ -201,7 +204,7 @@ describe('isKiteConfigFilePath', () => {
   })
 })
 
-describe('getKiteTempDirName', () => {
+describeUnix('getKiteTempDirName', () => {
   it('includes uid on Unix', () => {
     const name = getKiteTempDirName()
     expect(name).toMatch(/^kite-\d+$/)

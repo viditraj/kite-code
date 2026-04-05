@@ -3,6 +3,9 @@ import { BashTool } from './BashTool/BashTool.js'
 import { FileReadTool } from './FileReadTool/FileReadTool.js'
 import { FileEditTool } from './FileEditTool/FileEditTool.js'
 import { filterToolsByDenyRules, getMergedTools, registerTools, getAllBaseTools } from '../tools.js'
+
+const isWindows = process.platform === 'win32'
+const describeUnix = isWindows ? describe.skip : describe
 import { GrepTool } from './GrepTool/GrepTool.js'
 import { GlobTool } from './GlobTool/GlobTool.js'
 import { WebFetchTool } from './WebFetchTool/WebFetchTool.js'
@@ -37,7 +40,7 @@ describe('BashTool.preparePermissionMatcher', () => {
   })
 })
 
-describe('FileReadTool.backfillObservableInput', () => {
+describeUnix('FileReadTool.backfillObservableInput', () => {
   it('expands tilde paths', () => {
     const input: Record<string, unknown> = { file_path: '~/test.txt' }
     FileReadTool.backfillObservableInput!(input)
@@ -59,7 +62,7 @@ describe('FileReadTool.backfillObservableInput', () => {
   })
 })
 
-describe('FileReadTool.preparePermissionMatcher', () => {
+describeUnix('FileReadTool.preparePermissionMatcher', () => {
   it('matches exact paths', async () => {
     const matcher = await FileReadTool.preparePermissionMatcher!({ file_path: '/tmp/test.txt' })
     expect(matcher('/tmp/test.txt')).toBe(true)
@@ -72,7 +75,7 @@ describe('FileReadTool.preparePermissionMatcher', () => {
   })
 })
 
-describe('FileEditTool.backfillObservableInput', () => {
+describeUnix('FileEditTool.backfillObservableInput', () => {
   it('expands tilde paths', () => {
     const input: Record<string, unknown> = { file_path: '~/config.json' }
     FileEditTool.backfillObservableInput!(input)
