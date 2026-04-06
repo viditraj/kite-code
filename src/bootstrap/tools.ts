@@ -33,6 +33,7 @@ import { SendMessageTool } from '../tools/SendMessageTool/SendMessageTool.js'
 import { SyntheticOutputTool } from '../tools/SyntheticOutputTool/SyntheticOutputTool.js'
 import { MonitorTool } from '../tools/MonitorTool/MonitorTool.js'
 import { VerifyPlanTool } from '../tools/VerifyPlanTool/VerifyPlanTool.js'
+import { DiagramTool } from '../tools/DiagramTool/DiagramTool.js'
 
 /**
  * All built-in tools in the order they should be registered.
@@ -64,6 +65,7 @@ const ALL_BUILTIN_TOOLS = [
   SleepTool,
   ConfigTool,
   MonitorTool,
+  DiagramTool,
   SyntheticOutputTool,
   VerifyPlanTool,
   SkillTool,
