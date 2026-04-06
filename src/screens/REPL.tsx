@@ -581,14 +581,17 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
           exit()
           return
         }
-        // Prompt commands (like /summary, /review) — send to LLM as a query
+        // Prompt commands (like /summary, /review, skills) — send to LLM as a query
         if (cmd.type === 'prompt') {
           try {
             const ctx = buildCommandContext()
             const result = await executeCommand(cmdName, args, ctx)
             if (result && result.type === 'text' && result.value) {
-              // Run the prompt text as a query to the LLM
-              await runQuery(result.value)
+              // For skills with arguments, prepend the user's input so the LLM sees it
+              const queryText = args
+                ? `${result.value}\n\nUser's input: ${args}`
+                : result.value
+              await runQuery(queryText)
             }
           } catch (err) {
             addSystemMessage(`Command error: ${(err as Error).message}`)

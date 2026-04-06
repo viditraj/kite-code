@@ -30,15 +30,25 @@ const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, l
 // Schema
 // ============================================================================
 
-const inputSchema = z.strictObject({
+// Preprocess to handle LLM quirks: null, "null", single string instead of array
+const flexibleStringArray = z.preprocess(
+  (val) => {
+    if (val === null || val === undefined || val === 'null' || val === '') return undefined
+    if (typeof val === 'string') return [val]
+    return val
+  },
+  z.array(z.string()).optional(),
+)
+
+const inputSchema = z.object({
   query: z.string().min(2).describe('The search query to use'),
-  allowed_domains: z.array(z.string()).optional().describe(
+  allowed_domains: flexibleStringArray.describe(
     'Only include search results from these domains',
   ),
-  blocked_domains: z.array(z.string()).optional().describe(
+  blocked_domains: flexibleStringArray.describe(
     'Never include search results from these domains',
   ),
-})
+}).passthrough()
 
 type WebSearchInput = z.infer<typeof inputSchema>
 

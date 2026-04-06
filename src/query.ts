@@ -42,6 +42,7 @@ import { createDefaultDeps } from './query/deps.js'
 import { autoCompact as doAutoCompact } from './services/compact/autoCompact.js'
 import { calculateTokenWarningState, type AutoCompactTrackingState } from './services/compact/autoCompact.js'
 import { estimateTokenCount } from './query/tokenBudget.js'
+import { randomUUID } from 'crypto'
 
 // ============================================================================
 // Constants
@@ -56,6 +57,73 @@ const MAX_OUTPUT_TOKENS_RECOVERY_LIMIT = 3
 /** Recovery message injected when output tokens are exhausted */
 const OUTPUT_TOKENS_RECOVERY_MESSAGE =
   'Output token limit reached. Continue exactly where you left off. Do not repeat previous output or apologize.'
+
+// ============================================================================
+// Text-based tool call parser (fallback for open-source models)
+// ============================================================================
+
+/**
+ * Parse tool calls that the model wrote as plain text instead of using the
+ * tool_use protocol. Handles patterns like:
+ *   - ToolName(param="value", param2="value2")
+ *   - ToolName(param="value")
+ *
+ * Only matches tool names that are actually available in the current tool set.
+ * Returns parsed tool_use blocks that can be executed normally.
+ */
+function parseTextToolCalls(
+  text: string,
+  tools: Tools,
+): ToolUseBlock[] {
+  const results: ToolUseBlock[] = []
+  const toolNames = new Set(tools.map(t => t.name))
+
+  // Pattern: ToolName(key="value", key2="value2")
+  // Also handles: ToolName(key="value", key2=value2) without quotes
+  const pattern = /\b([A-Z][A-Za-z]+)\(([^)]*)\)/g
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text)) !== null) {
+    const name = match[1]!
+    const argsStr = match[2]!
+
+    if (!toolNames.has(name)) continue
+
+    // Parse key=value pairs
+    const input: Record<string, unknown> = {}
+    // Match key="value" or key=value patterns
+    const argPattern = /(\w+)\s*=\s*(?:"([^"]*?)"|'([^']*?)'|(\S+?)(?=\s*[,)]|$))/g
+    let argMatch: RegExpExecArray | null
+
+    while ((argMatch = argPattern.exec(argsStr)) !== null) {
+      const key = argMatch[1]!
+      const value = argMatch[2] ?? argMatch[3] ?? argMatch[4] ?? ''
+      // Convert "null" to undefined, "true"/"false" to booleans
+      if (value === 'null' || value === 'None') {
+        // skip — don't set the key
+      } else if (value === 'true') {
+        input[key] = true
+      } else if (value === 'false') {
+        input[key] = false
+      } else if (/^\d+$/.test(value)) {
+        input[key] = parseInt(value, 10)
+      } else {
+        input[key] = value
+      }
+    }
+
+    // Only add if we got at least one meaningful parameter
+    if (Object.keys(input).length > 0) {
+      results.push({
+        id: `text-tool-${randomUUID().slice(0, 8)}`,
+        name,
+        input,
+      })
+    }
+  }
+
+  return results
+}
 
 // ============================================================================
 // query() — main entry point
@@ -351,6 +419,35 @@ export async function* query(
     }
 
     // ------------------------------------------------------------------
+    // Step 3b: Fallback — parse text-based tool calls from open-source models
+    //
+    // Some models (Llama, Gemma, etc.) output tool calls as plain text
+    // like `WebFetch(url="...", prompt="...")` instead of using the
+    // tool_use protocol. Detect these and convert to real tool calls.
+    // ------------------------------------------------------------------
+    if (toolUseBlocks.length === 0 && stopReason !== 'tool_use') {
+      const fullText = assistantContent
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map(b => b.text)
+        .join('')
+
+      const parsed = parseTextToolCalls(fullText, params.tools)
+      if (parsed.length > 0) {
+        // Remove the text-based tool call from assistant content and replace with real tool_use blocks
+        for (const tc of parsed) {
+          assistantContent.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.name,
+            input: tc.input,
+          })
+          toolUseBlocks.push(tc)
+        }
+        stopReason = 'tool_use'
+      }
+    }
+
+    // ------------------------------------------------------------------
     // Step 4: Check if we need tool execution
     // ------------------------------------------------------------------
     const needsToolExecution = toolUseBlocks.length > 0 && stopReason === 'tool_use'
@@ -380,7 +477,7 @@ export async function* query(
 
       if (!toolDef) {
         // Unknown tool — immediate error result
-        const errorMsg = `Error: No such tool available: ${tb.name}`
+        const errorMsg = `<tool_use_error>Error: No such tool available: ${tb.name}. Try a different tool or approach.</tool_use_error>`
         toolResults.push({
           type: 'tool_result',
           tool_use_id: tb.id,
@@ -407,10 +504,11 @@ export async function* query(
       )
 
       if (permResult.behavior === 'deny') {
+        const denyMsg = `<tool_use_error>${permResult.message || `Permission denied for ${tb.name}`}. Try a different approach or ask the user for guidance.</tool_use_error>`
         toolResults.push({
           type: 'tool_result',
           tool_use_id: tb.id,
-          content: permResult.message || `Permission denied for ${tb.name}`,
+          content: denyMsg,
           is_error: true,
         })
         yield {

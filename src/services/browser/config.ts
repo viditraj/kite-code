@@ -83,6 +83,7 @@ export function getBuiltinBrowserConfig(): Record<string, ScopedMCPServerConfig>
       '--caps', 'vision',
       '--browser', 'chromium',
       '--no-sandbox',
+      '--ignore-https-errors',
     ],
     scope: 'local',
   }

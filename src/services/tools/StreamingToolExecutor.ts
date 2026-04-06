@@ -252,7 +252,7 @@ export class StreamingToolExecutor {
       // Parse and validate input
       const parsed = toolDef.inputSchema.safeParse(tracked.block.input)
       if (!parsed.success) {
-        const errorMsg = `Input validation failed: ${parsed.error.message}`
+        const errorMsg = `<tool_use_error>InputValidationError for ${tracked.block.name}: ${parsed.error.message}\nDo not retry with the same arguments. Try a different approach or different tool.</tool_use_error>`
         tracked.result = {
           toolUseId: tracked.id,
           toolName: tracked.block.name,
@@ -273,15 +273,16 @@ export class StreamingToolExecutor {
       if (toolDef.validateInput) {
         const validation = await toolDef.validateInput(parsed.data, this.context)
         if (!validation.result) {
+          const valMsg = `<tool_use_error>${validation.message || 'Input validation failed'}\nDo not retry with the same arguments. Try a different approach or different tool.</tool_use_error>`
           tracked.result = {
             toolUseId: tracked.id,
             toolName: tracked.block.name,
-            output: validation.message || 'Input validation failed',
+            output: valMsg,
             isError: true,
             contentBlock: {
               type: 'tool_result',
               tool_use_id: tracked.id,
-              content: validation.message || 'Input validation failed',
+              content: valMsg,
               is_error: true,
             },
           }
@@ -331,9 +332,10 @@ export class StreamingToolExecutor {
       const error = err instanceof Error ? err : new Error(String(err))
       const isCancelled = error.name === 'AbortError' || this.siblingAbortController.signal.aborted
 
-      const message = isCancelled && this.hasErrored
+      const rawMessage = isCancelled && this.hasErrored
         ? `Tool cancelled because a sibling tool errored: ${this.erroredToolDescription}`
         : `Tool error: ${error.message}`
+      const message = `<tool_use_error>${rawMessage}\nDo not retry with the same arguments. Try a different approach or different tool.</tool_use_error>`
 
       tracked.result = {
         toolUseId: tracked.id,
