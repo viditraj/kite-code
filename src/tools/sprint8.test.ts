@@ -55,9 +55,9 @@ describe('AgentTool', () => {
     expect(AGENT_TOOL_NAME).toBe('Agent')
   })
 
-  it('is read-only and concurrency-safe', () => {
-    expect(AgentTool.isReadOnly({})).toBe(true)
-    expect(AgentTool.isConcurrencySafe({})).toBe(true)
+  it('is not read-only (writes state for background agents)', () => {
+    expect(AgentTool.isReadOnly({})).toBe(false)
+    expect(AgentTool.isConcurrencySafe({})).toBe(false)
   })
 
   it('launches async agent', async () => {
@@ -81,10 +81,10 @@ describe('AgentTool', () => {
 
   it('maps async result correctly', () => {
     const mapped = AgentTool.mapToolResultToToolResultBlockParam(
-      { status: 'async_launched', agentId: 'abc', description: 'test', prompt: 'do something' },
+      { status: 'async_launched', agentId: 'abc', agentType: 'general-purpose', description: 'test', prompt: 'do something' },
       'tu-1',
     )
-    expect(mapped.content).toContain('Async agent launched')
+    expect(mapped.content).toContain('launched in background')
     expect(mapped.tool_use_id).toBe('tu-1')
   })
 })

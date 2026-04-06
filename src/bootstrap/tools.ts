@@ -34,6 +34,17 @@ import { SyntheticOutputTool } from '../tools/SyntheticOutputTool/SyntheticOutpu
 import { MonitorTool } from '../tools/MonitorTool/MonitorTool.js'
 import { VerifyPlanTool } from '../tools/VerifyPlanTool/VerifyPlanTool.js'
 import { DiagramTool } from '../tools/DiagramTool/DiagramTool.js'
+import { TeamCreateTool } from '../tools/TeamCreateTool/TeamCreateTool.js'
+import { TeamDeleteTool } from '../tools/TeamDeleteTool/TeamDeleteTool.js'
+import { REPLTool } from '../tools/REPLTool/REPLTool.js'
+import {
+  TaskCreateTool,
+  TaskGetTool,
+  TaskListTool,
+  TaskUpdateTool,
+  TaskStopTool,
+  TaskOutputTool,
+} from '../tools/TaskTools/TaskTools.js'
 
 /**
  * All built-in tools in the order they should be registered.
@@ -55,6 +66,18 @@ const ALL_BUILTIN_TOOLS = [
   TodoWriteTool,
   AskUserQuestionTool,
   SendMessageTool,
+  // Team/swarm tools
+  TeamCreateTool,
+  TeamDeleteTool,
+  // Task management tools
+  TaskCreateTool,
+  TaskGetTool,
+  TaskListTool,
+  TaskUpdateTool,
+  TaskStopTool,
+  TaskOutputTool,
+  // REPL batch execution
+  REPLTool,
   // Deferred tools
   NotebookEditTool,
   ToolSearchTool,
