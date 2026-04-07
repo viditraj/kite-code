@@ -61,20 +61,8 @@ kite
 
 On first launch, Kite walks you through a setup wizard:
 
-```
-  ██╗  ██╗██╗████████╗███████╗
-  ██║ ██╔╝██║╚══██╔══╝██╔════╝
-  █████╔╝ ██║   ██║   █████╗    CODE
-  ██╔═██╗ ██║   ██║   ██╔══╝
-  ██║  ██╗██║   ██║   ███████╗
-  ╚═╝  ╚═╝╚═╝   ╚═╝   ╚══════╝
+<img width="600" height="725" alt="image" src="https://github.com/user-attachments/assets/07029fd4-cdf4-47c2-a456-e13ab7a19ce3" />
 
-  Welcome to Kite Code!
-
-  Step 1: Choose a color theme
-  Step 2: Configure your LLM provider
-  Step 3: Security notes
-```
 
 The walkthrough saves your preferences to `~/.kite/config.json` (theme) and
 `kite.config.json` (provider). It only runs once. Re-run anytime with `kite --setup`.
