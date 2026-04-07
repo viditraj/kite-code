@@ -1,7 +1,5 @@
-<p align="center">
-  <strong>KITE CODE</strong><br>
-  <em>Open-source AI coding CLI — zero telemetry, any LLM provider</em>
-</p>
+<img width="1741" height="793" alt="image" src="https://github.com/user-attachments/assets/e1fa5974-c981-4ae4-93ca-999dcaa1cdbe" />
+
 
 <p align="center">
   <img alt="Node.js 20+" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen">
