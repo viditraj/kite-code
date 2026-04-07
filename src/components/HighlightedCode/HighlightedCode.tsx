@@ -719,7 +719,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         }
       </Text>
 
-      {/* Code content */}
+      {/* Code content — no line numbers for clean copy-paste */}
       <Box paddingLeft={1}>
         <HighlightedCode
           code={code}
@@ -727,8 +727,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           language={language}
           dim={dim}
           maxLines={maxLines}
-          showLineNumbers={true}
-          startLine={1}
+          showLineNumbers={false}
         />
       </Box>
 

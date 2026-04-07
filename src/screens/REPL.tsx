@@ -21,6 +21,8 @@ import { Box, Text, Static, useInput, useApp } from 'ink'
 import { randomUUID } from 'crypto'
 
 import { LogoV2, CondensedLogo } from '../components/LogoV2/LogoV2.js'
+import { NotificationToast, useNotifications } from '../components/NotificationToast.js'
+import { BackgroundTasksBar, type TaskInfo } from '../components/tasks/TasksView.js'
 import { Spinner, type SpinnerMode } from '../components/Spinner/Spinner.js'
 import { PromptInput } from '../components/PromptInput/PromptInput.js'
 import { ProviderSetup, type ProviderSetupResult } from './ProviderSetup.js'
@@ -127,6 +129,9 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
   const [interactiveCmd, setInteractiveCmd] = useState<InteractiveCommandState | null>(null)
   const [showThinking, setShowThinking] = useState(false)
   const [tokenCount, setTokenCount] = useState(0)
+
+  // Notification toast system
+  const { notifications, addNotification, dismissNotification } = useNotifications()
 
   const loadingStartTimeRef = useRef<number>(0)
   const messageCountRef = useRef(0)
@@ -304,7 +309,7 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
     }
   }, [])
 
-  /** Add a system message */
+  /** Add a system message + optional toast notification */
   const addSystemMessage = useCallback((content: string) => {
     addCompleted({
       id: randomUUID(),
@@ -312,7 +317,18 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
       content,
       timestamp: Date.now(),
     })
-  }, [addCompleted])
+
+    // Fire toast notifications for key events
+    if (content.includes('cancelled')) {
+      addNotification(content, 'warning', 3000)
+    } else if (content.includes('Conversation cleared') || content.includes('compacted')) {
+      addNotification(content, 'success', 3000)
+    } else if (content.includes('Error:')) {
+      addNotification(content.slice(0, 80), 'error', 5000)
+    } else if (content.includes('configured') || content.includes('set to')) {
+      addNotification(content.split('\n')[0]!, 'success', 3000)
+    }
+  }, [addCompleted, addNotification])
 
   const clearMessages = useCallback(() => {
     setCompletedMessages([])
@@ -895,6 +911,30 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
 
       {/* Prompt input + Status bar — wrapped in a single column box */}
       <Box flexDirection="column">
+        {/* Notification toasts */}
+        <NotificationToast
+          notifications={notifications}
+          onDismiss={dismissNotification}
+        />
+
+        {/* Background tasks panel */}
+        {(() => {
+          const tasks: TaskInfo[] = Object.values(
+            (engine['appState'].tasks ?? {}) as Record<string, any>,
+          ).map((t: any) => ({
+            id: t.id ?? '',
+            subject: t.description ?? t.subject ?? 'Task',
+            status: t.status ?? 'pending',
+            type: t.type === 'local_agent' ? 'agent' : t.type,
+            progress: t.progress ? {
+              toolCount: t.progress.toolUseCount,
+              tokenCount: t.progress.tokenCount,
+              lastActivity: t.progress.recentActivities?.[t.progress.recentActivities.length - 1]?.toolName,
+            } : undefined,
+          }))
+          return tasks.length > 0 ? <BackgroundTasksBar tasks={tasks} /> : null
+        })()}
+
         {/* Spinner while loading */}
         {isLoading && screen !== 'permission' && (
           <Spinner

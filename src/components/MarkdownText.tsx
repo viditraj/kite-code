@@ -13,6 +13,7 @@
 
 import React from 'react'
 import { Box, Text } from 'ink'
+import { CodeBlock } from './HighlightedCode/HighlightedCode.js'
 
 // ============================================================================
 // Basic syntax highlighting for code lines
@@ -125,17 +126,10 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ children }) => {
         i++
       }
       i++ // skip closing ```
-      // Calculate box width based on longest code line (+ 4 for border + padding)
-      const maxLineLen = codeLines.reduce((max, l) => Math.max(max, l.length), 0)
-      const boxWidth = Math.min(maxLineLen + 4, 80)
+      const code = codeLines.join('\n')
       blocks.push(
-        <Box key={`code-${blocks.length}`} flexDirection="column" marginTop={1}>
-          {lang && <Text dimColor> {lang}</Text>}
-          <Box borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column" width={boxWidth}>
-            {codeLines.map((cl, ci) => (
-              <Text key={ci}><CodeLine line={cl} lang={lang} /></Text>
-            ))}
-          </Box>
+        <Box key={`code-${blocks.length}`} marginTop={1}>
+          <CodeBlock code={code} language={lang || undefined} maxLines={100} />
         </Box>
       )
       continue

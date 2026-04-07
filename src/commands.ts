@@ -956,31 +956,78 @@ function createBuiltinCommands(): Command[] {
     {
       type: 'local',
       name: 'stats',
-      description: 'Show session statistics',
+      description: 'Show session statistics with visual charts',
       supportsNonInteractive: true,
       async call(_args, context) {
         const appState = context.getAppState()
         const uptime = Math.floor(process.uptime())
         const minutes = Math.floor(uptime / 60)
         const seconds = uptime % 60
-        const usage = appState._cumulativeUsage as { inputTokens?: number; outputTokens?: number } | undefined
-        const totalTokens = (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0)
+        const duration = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+
+        const usage = (appState._cumulativeUsage ?? {}) as Record<string, number>
+        const inputTokens = usage.inputTokens ?? 0
+        const outputTokens = usage.outputTokens ?? 0
+        const cacheRead = usage.cacheReadInputTokens ?? 0
+        const cacheCreate = usage.cacheCreationInputTokens ?? 0
+        const totalTokens = inputTokens + outputTokens + cacheRead + cacheCreate
+
         const msgCount = context.messages.length
         const userMsgs = context.messages.filter((m: any) => m.role === 'user').length
         const assistantMsgs = context.messages.filter((m: any) => m.role === 'assistant').length
-        const memUsage = process.memoryUsage()
+        const mem = process.memoryUsage()
+        const model = context.options.mainLoopModel
+        const config = appState._config as any
+        const provider = config?.provider?.name ?? 'unknown'
+
+        // Context window detection
+        let ctxWindow = 128000
+        if (model.includes('claude')) ctxWindow = 200000
+        if (model.includes('gpt-4o')) ctxWindow = 128000
+        if (model.includes('gemma')) ctxWindow = 1000000
+
+        const ctxPct = totalTokens > 0 ? Math.round((totalTokens / ctxWindow) * 100) : 0
+
+        // ASCII bar chart helper
+        const bar = (val: number, max: number, w: number = 25) => {
+          const filled = Math.round((val / Math.max(max, 1)) * w)
+          return '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, w - filled))
+        }
+        const fmt = (n: number) => {
+          if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+          if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+          return String(n)
+        }
+        const pct = (v: number, t: number) => t > 0 ? `${Math.round((v / t) * 100)}%` : '0%'
+
+        const ctxColor = ctxPct > 80 ? '' : ctxPct > 50 ? '' : ''
 
         const lines = [
-          'Session Statistics:',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          '  Session Statistics',
           '',
-          `  Duration:          ${minutes}m ${seconds}s`,
-          `  Messages:          ${msgCount} (${userMsgs} user, ${assistantMsgs} assistant)`,
-          `  Total tokens:      ${totalTokens.toLocaleString()}`,
-          `  Memory (heap):     ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-          `  PID:               ${process.pid}`,
-          `  Node.js:           ${process.version}`,
-          `  Model:             ${context.options.mainLoopModel}`,
-          `  CWD:               ${process.cwd()}`,
+          `  Duration:      ${duration}`,
+          `  Model:         ${model}`,
+          `  Provider:      ${provider}`,
+          `  Messages:      ${msgCount} (${userMsgs} user, ${assistantMsgs} assistant)`,
+          '',
+          '  Context Window',
+          `  ${bar(totalTokens, ctxWindow, 35)} ${ctxPct}%`,
+          `  ${fmt(totalTokens)} / ${fmt(ctxWindow)} tokens`,
+          '',
+          '  Token Breakdown',
+          `  Input:       ${bar(inputTokens, totalTokens, 20)} ${fmt(inputTokens)} (${pct(inputTokens, totalTokens)})`,
+          `  Output:      ${bar(outputTokens, totalTokens, 20)} ${fmt(outputTokens)} (${pct(outputTokens, totalTokens)})`,
+          ...(cacheRead > 0 ? [`  Cache read:  ${bar(cacheRead, totalTokens, 20)} ${fmt(cacheRead)} (${pct(cacheRead, totalTokens)})`] : []),
+          ...(cacheCreate > 0 ? [`  Cache write: ${bar(cacheCreate, totalTokens, 20)} ${fmt(cacheCreate)} (${pct(cacheCreate, totalTokens)})`] : []),
+          `  ──────────`,
+          `  Total:       ${fmt(totalTokens)}`,
+          '',
+          '  Memory',
+          `  Heap:        ${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+          `  PID:         ${process.pid}`,
+          `  Node.js:     ${process.version}`,
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
         ]
         return { type: 'text', value: lines.join('\n') }
       },
