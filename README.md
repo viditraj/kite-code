@@ -6,17 +6,19 @@
   <img alt="Node.js 20+" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen">
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-5.8-blue">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green">
-  <img alt="Tests: 692" src="https://img.shields.io/badge/tests-692%20passing-brightgreen">
+  <img alt="Tests: 772" src="https://img.shields.io/badge/tests-772%20passing-brightgreen">
 </p>
 
 ---
 
-Kite Code is a general-purpose AI terminal assistant built with TypeScript and [Ink](https://github.com/vadimdemedes/ink). It connects to **any** LLM provider (Anthropic, OpenAI, Ollama, Groq, DeepSeek, Mistral, OpenRouter, or custom endpoints) and gives you a powerful AI agent with web search, web browsing, shell access, file operations, and 29 built-in tools — with **zero telemetry**, **zero OAuth**, and **zero vendor lock-in**. Not just for coding — ask it anything.
+Kite Code is a general-purpose AI terminal assistant built with TypeScript and [Ink](https://github.com/vadimdemedes/ink). It connects to **any** LLM provider (Anthropic, OpenAI, Ollama, Groq, DeepSeek, Mistral, OpenRouter, or custom endpoints) and gives you a powerful AI agent with web search, web browsing, shell access, file operations, HTTP API calls, headless pipelines, and 35+ built-in tools — with **zero telemetry**, **zero OAuth**, and **zero vendor lock-in**. Not just for coding — ask it anything.
 
 ## Features
 
-- **29 built-in tools** — Bash, file read/write/edit, grep, glob, web search, web fetch, agent spawning, todo management, LSP diagnostics, MCP integration, and more
-- **48 slash commands** — `/model`, `/provider`, `/context`, `/stats`, `/effort`, `/theme`, `/rewind`, `/rename`, `/sandbox`, and more — many with interactive arrow-key pickers
+- **35+ built-in tools** — Bash, file read/write/edit, grep, glob, web search, web fetch, HTTP requests, agent spawning, todo management, LSP diagnostics, MCP integration, pipeline automation, and more
+- **50 slash commands** — `/model`, `/provider`, `/context`, `/stats`, `/effort`, `/theme`, `/rewind`, `/rename`, `/sandbox`, `/permissions`, and more — many with interactive arrow-key pickers
+- **Headless Pipeline Engine** — define YAML-based automation pipelines that run on a schedule, triggered by webhooks, or on demand — each stage is an autonomous LLM agent
+- **Full HTTP Client** — `HttpRequest` tool for REST APIs, webhooks, JIRA, Confluence, GitHub, Slack — any HTTP service with auth and custom headers
 - **Command autocomplete** — type `/` and get a fuzzy-matched dropdown with arrow-key navigation, Tab to apply, ghost text for inline completion
 - **Message timestamps** — relative timestamps ("just now", "2m ago", "1h ago") on user and assistant messages
 - **8 LLM providers** — Anthropic, OpenAI, Ollama, Groq, DeepSeek, Mistral, OpenRouter, or any OpenAI-compatible endpoint
@@ -28,6 +30,7 @@ Kite Code is a general-purpose AI terminal assistant built with TypeScript and [
 - **Token tracking** — live context window usage in the status bar, `/context` for detailed breakdown with visual bar
 - **Permission system** — Allow / Always allow / Deny per tool, with session memory and per-tool permission dialogs
 - **Plugin system** — load custom tools, commands, and hooks from `.kite/plugins/`
+- **Vim mode** — full vim keybindings in the input area (motions, operators, text objects, dot repeat)
 - **14 React hooks** — useElapsedTime, useHistorySearch, useDoublePress, useMinDisplayTime, useTimeout, useCancelRequest, and more
 - **Typed state management** — AppStateStore with React context, selectors, and disk persistence
 - **Provider setup wizard** — guided first-run onboarding with `--setup`
@@ -176,6 +179,9 @@ kite --model gpt-4o              # Override model
 kite --doctor                     # System diagnostics
 kite --setup                      # Provider setup wizard
 kite --help                       # Show help
+kite pipeline list                # List all pipelines
+kite pipeline run <name>          # Run a pipeline
+kite pipeline daemon              # Start the pipeline scheduler
 ```
 
 ### CLI Flags
@@ -202,6 +208,20 @@ kite --help                       # Show help
 | `--verbose` | Verbose output |
 | `--bare` | Minimal mode: skip hooks, plugins, auto-memory |
 
+### Pipeline Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `kite pipeline list` | Discover and list all pipelines |
+| `kite pipeline run <name>` | Execute a pipeline by name |
+| `kite pipeline run <name> --dry-run` | Plan-only mode (no write operations) |
+| `kite pipeline run <name> --set key=value` | Run with variable overrides |
+| `kite pipeline status <name>` | Show run history for a pipeline |
+| `kite pipeline status <name> --run <id>` | Get detailed results for a specific run |
+| `kite pipeline validate <file>` | Validate a pipeline YAML file |
+| `kite pipeline daemon` | Start the cron scheduler (long-running) |
+| `kite pipeline daemon --once` | Run all due pipelines once and exit |
+
 ## Commands
 
 Type `/` and get autocomplete suggestions. Type `/help` for the interactive command picker.
@@ -213,6 +233,7 @@ Type `/` and get autocomplete suggestions. Type `/help` for the interactive comm
 | `/help` | Interactive command picker with arrow-key navigation |
 | `/model [name]` | Show or switch AI model (interactive picker when no args) |
 | `/provider [name]` | Show or switch LLM provider (interactive picker when no args) |
+| `/provider-settings [setting] [value]` | View or edit provider settings |
 | `/setup` | Launch provider setup wizard |
 | `/mode [mode]` | Change permission mode (interactive picker when no args) |
 | `/effort [level]` | Set effort level: low / medium / high |
@@ -221,6 +242,7 @@ Type `/` and get autocomplete suggestions. Type `/help` for the interactive comm
 | `/thinking` | Toggle thinking/reasoning display |
 | `/vim` | Toggle vim keybinding mode |
 | `/fast` | Toggle fast mode (use faster model) |
+| `/login` | Show API key setup instructions |
 | `/debug` | Toggle debug logging |
 | `/verbose` | Toggle verbose output |
 
@@ -249,7 +271,6 @@ Type `/` and get autocomplete suggestions. Type `/help` for the interactive comm
 | `/config` | Show current configuration |
 | `/env` | Show environment information |
 | `/sandbox [on\|off]` | Show or toggle sandbox mode |
-| `/login` | Configure API key |
 | `/doctor` | Run system diagnostics |
 | `/diff` | Show git changes |
 | `/branch [name]` | Show or switch git branch |
@@ -262,46 +283,218 @@ Type `/` and get autocomplete suggestions. Type `/help` for the interactive comm
 | `/status` | System status |
 | `/keybindings` | Keyboard shortcuts |
 | `/memory` | Show AGENTS.md / CLAUDE.md memory files |
+| `/permissions` | Show current permission rules |
 | `/review [scope]` | Review code changes |
+| `/plan` | Enter plan mode |
 | `/feedback <text>` | Send feedback |
 | `/release-notes` | Show release notes |
 | `/exit` | Exit Kite |
 
 ## Tools
 
-Kite has **29 built-in tools** that the AI can use:
+Kite has **35+ built-in tools** that the AI can use:
+
+### Core File Operations
 
 | Tool | Description | Permission |
 |------|-------------|------------|
-| `Bash` | Execute shell commands (async spawn with streaming) | Ask |
-| `Read` | Read files and directories with line ranges | Auto-allow |
-| `Write` | Create or overwrite files | Ask |
-| `Edit` | Modify files via exact string replacement | Ask |
-| `Grep` | Search file contents (ripgrep) | Auto-allow |
-| `Glob` | Find files by glob pattern | Auto-allow |
-| `WebSearch` | Search the web via DuckDuckGo | Auto-allow |
-| `WebFetch` | Fetch and extract URL content | Ask |
-| `Agent` | Spawn subagents for delegated tasks | Auto-allow |
-| `TodoWrite` | Manage session task checklist | Auto-allow |
-| `AskUserQuestion` | Prompt user with structured questions | Auto-allow |
-| `LSP` | Language server diagnostics (TS/JS/Python/Rust) | Auto-allow |
-| `NotebookEdit` | Edit Jupyter notebooks | Ask |
+| `Bash` | Execute shell commands with async spawn, streaming, and auto-backgrounding | Ask |
 | `PowerShell` | Execute PowerShell commands (Windows) | Ask |
-| `Monitor` | System resource monitoring (CPU/memory/disk) | Auto-allow |
-| `Config` | Read/write kite.config.json | Auto-allow |
-| `ToolSearch` | Search for deferred tools | Auto-allow |
-| `Skill` | Execute custom skills from .kite/skills/ | Auto-allow |
+| `Read` | Read files and directories with line ranges | Auto-allow |
+| `Write` | Create or overwrite files (auto-creates parent dirs) | Ask |
+| `Edit` | Modify files via exact string replacement | Ask |
+| `Grep` | Search file contents via ripgrep (regex, context, multiple output modes) | Auto-allow |
+| `Glob` | Find files by glob pattern | Auto-allow |
+| `NotebookEdit` | Edit Jupyter notebook cells (replace, insert, delete) | Ask |
+
+### Web & Network
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `WebSearch` | Search the web via DuckDuckGo (no API key required) | Auto-allow |
+| `WebFetch` | Fetch URL content with HTML-to-Markdown conversion and caching | Ask |
+| `HttpRequest` | Full HTTP client (GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS) with headers, auth, and body support | Ask (mutating) / Auto-allow (GET) |
+
+### Agent & Workflow
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `Agent` | Spawn subagents (Explore, Plan, GeneralPurpose) for delegated tasks | Auto-allow |
+| `TodoWrite` | Manage session task checklist with status tracking | Auto-allow |
+| `AskUserQuestion` | Prompt user with multiple-choice questions | Auto-allow |
+| `SendMessage` | Inter-agent communication for background agents | Auto-allow |
+| `EnterPlanMode` | Switch to explore-only plan mode | Auto-allow |
+| `ExitPlanMode` | Present plan for user approval | Auto-allow |
+| `VerifyPlan` | Verify plan execution against conversation history | Auto-allow |
+
+### Team & Task Management
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `TeamCreate` | Create multi-agent swarm teams with shared task lists | Auto-allow |
+| `TeamDelete` | Disband a team | Auto-allow |
+| `TaskCreate` | Create background tasks with metadata | Auto-allow |
+| `TaskGet` | Retrieve a task by ID | Auto-allow |
+| `TaskList` | List all background tasks | Auto-allow |
+| `TaskUpdate` | Update task status, description, or dependencies | Auto-allow |
+| `TaskStop` | Stop a running background task | Auto-allow |
+| `TaskOutput` | Read output from a background task (with blocking support) | Auto-allow |
+
+### Pipeline Automation
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `PipelineRun` | Execute a pipeline by name (supports dry-run and variable overrides) | Auto-allow |
+| `PipelineList` | Discover and list all available pipelines | Auto-allow |
+| `PipelineStatus` | Show run history and per-stage results for a pipeline | Auto-allow |
+| `PipelineValidate` | Validate a pipeline YAML definition | Auto-allow |
+| `PipelineDelete` | Remove a pipeline definition file | Ask |
+
+### Code Intelligence & Utilities
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `LSP` | Language server diagnostics (TypeScript, JavaScript, Python, Rust) | Auto-allow |
+| `Monitor` | System resource monitoring (CPU, memory, disk) | Auto-allow |
+| `Config` | Read/write `kite.config.json` settings | Auto-allow |
+| `Diagram` | Generate SVG/PNG diagrams from Mermaid or ANSI text | Auto-allow |
+| `REPL` | Batch tool execution mode | Auto-allow |
+| `Skill` | Execute custom skills from `.kite/skills/` | Auto-allow |
+| `ToolSearch` | Search for deferred/hidden tools by keyword | Auto-allow |
+| `Sleep` | Delay execution (max 5 min) | Auto-allow |
+| `SyntheticOutput` | Generate formatted synthetic output (text/JSON/markdown) | Auto-allow |
+
+### MCP & Extensions
+
+| Tool | Description | Permission |
+|------|-------------|------------|
 | `MCPTool` | Call tools on connected MCP servers | Ask |
 | `ListMcpResources` | List resources from MCP servers | Auto-allow |
 | `ReadMcpResource` | Read a specific MCP resource | Auto-allow |
-| `SendMessage` | Send messages to background agents | Auto-allow |
-| `ScheduleCron` | Schedule recurring tasks | Ask |
-| `WorktreeTool` | Manage git worktrees | Ask |
-| `VerifyPlan` | Verify a plan before execution | Auto-allow |
-| `PlanMode` | Enter/exit plan mode | Auto-allow |
-| `Sleep` | Delay execution | Auto-allow |
-| `TaskTools` | Manage background tasks | Auto-allow |
-| `SyntheticOutput` | Generate synthetic tool output | Auto-allow |
+
+### Scheduling & Git
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `ScheduleCronCreate` | Create a scheduled cron task | Auto-allow |
+| `ScheduleCronList` | List all scheduled cron tasks | Auto-allow |
+| `ScheduleCronDelete` | Remove a scheduled cron task | Auto-allow |
+| `EnterWorktree` | Create a git worktree for parallel branch work | Ask |
+| `ExitWorktree` | Remove a git worktree | Ask |
+
+## Pipelines
+
+Kite includes a headless pipeline engine for automating recurring tasks. Pipelines are YAML files where each stage is an autonomous LLM agent prompt. The agent decides which tools to use.
+
+### Quick Example
+
+Create `.kite/pipelines/my-pipeline.yaml`:
+
+```yaml
+name: my-pipeline
+description: Analyze codebase and generate a report
+
+trigger:
+  type: manual
+
+settings:
+  permissionMode: bypassPermissions
+  maxTurns: 30
+
+stages:
+  - name: gather-info
+    prompt: |
+      Run `git log --oneline -10` and `npm test` to gather
+      project status. Report the results in structured format.
+    tools: [Bash]
+
+  - name: generate-report
+    prompt: |
+      Based on these results:
+      {{ stages.gather-info.output }}
+
+      Write a summary report to ./STATUS_REPORT.md
+    tools: [Write, Bash]
+```
+
+Run it:
+
+```bash
+kite pipeline run my-pipeline
+```
+
+### Pipeline Features
+
+- **YAML-based**: human-readable pipeline definitions in `.kite/pipelines/`
+- **Stage-by-stage execution**: each stage gets its own LLM agent via `QueryEngine`
+- **`{{ }}` interpolation**: pass data between stages with `{{ stages.<name>.output }}`
+- **Tool whitelisting**: restrict which tools each stage can use
+- **Conditions**: skip stages with `condition: "{{ stages.prev.status }} == completed"`
+- **Early termination**: halt the pipeline with `stopIf: "NO_ISSUES_FOUND"`
+- **Retries**: per-stage and per-pipeline retry counts
+- **Cost budgets**: `maxCostUsd` to prevent runaway spending
+- **Dry-run mode**: `--dry-run` to plan without writing
+- **Failure notifications**: webhook or command on failure
+- **Run history**: JSONL logs in `~/.kite/pipelines/logs/` with `kite pipeline status`
+
+### Trigger Types
+
+| Trigger | Description |
+|---------|-------------|
+| `manual` | Run on demand with `kite pipeline run <name>` |
+| `cron` | Scheduled via cron expression (e.g., `0 */2 * * *` for every 2 hours) |
+| `webhook` | Triggered by HTTP webhook (with optional secret) |
+| `file-watch` | Triggered when files change (with debounce) |
+
+### Pipeline Settings
+
+```yaml
+settings:
+  model: claude-sonnet-4          # LLM model override
+  maxTurns: 50                    # Max agent turns per stage
+  permissionMode: bypassPermissions  # No prompts (headless)
+  maxCostUsd: 5.00                # Budget cap per run
+  cwd: /path/to/project           # Working directory
+  maxTokens: 8192                 # Max output tokens per turn
+  env:                            # Environment variables
+    JIRA_TOKEN: ${JIRA_API_TOKEN}
+```
+
+### Stage Options
+
+```yaml
+stages:
+  - name: my-stage
+    prompt: "..."                 # LLM prompt (supports {{ }} interpolation)
+    tools: [Read, Grep, Bash]     # Tool whitelist (default: all)
+    agent: Explore                # Agent type: Explore (read-only), Plan, or omit
+    condition: "{{ ... }}"        # Skip if falsy
+    stopIf: "NO_DATA"            # Halt pipeline if output contains this
+    optional: true                # Failure doesn't stop pipeline
+    timeout: 300000               # Stage timeout in ms (default: 5 min)
+    retries: 2                    # Retry count for this stage
+    model: gpt-4o                 # Model override for this stage
+    systemPrompt: "Extra context" # Appended to the stage system prompt
+```
+
+### Use Cases
+
+- **Defect solver**: Poll JIRA for SEV3 bugs, analyze codebase, implement fixes, raise PRs
+- **PR reviewer**: Fetch open PRs on a schedule, review code, post comments
+- **Documentation sync**: Gather weekly metrics and update Confluence pages
+- **Nightly health checks**: Run build + tests, report results to Slack
+- **Dependency audits**: Check for outdated packages, create upgrade PRs
+
+### Daemon Mode
+
+Start the cron scheduler for all pipelines with `trigger.type: cron`:
+
+```bash
+kite pipeline daemon              # Long-running scheduler
+kite pipeline daemon --once       # Run all due pipelines once and exit
+```
+
+The daemon auto-discovers pipelines from `.kite/pipelines/` and `~/.kite/pipelines/`, prevents concurrent runs of the same pipeline, and re-scans for new pipelines every 5 minutes.
 
 ## Themes
 
@@ -393,9 +586,22 @@ Follow the deployment checklist in DEPLOY.md.
 
 Then invoke with `/deploy production`.
 
+### Skill Options
+
+| Field | Description |
+|-------|-------------|
+| `name` | Skill name (becomes the slash command) |
+| `description` | Help text shown in command picker |
+| `arguments` | Named arguments (substituted via `{{arg}}`) |
+| `allowedTools` | Restrict which tools the skill can use |
+| `model` | Model override for this skill |
+| `context` | `inline` (same conversation) or `fork` (new context) |
+| `agent` | Agent type to use (Explore, Plan) |
+| `paths` | File paths to auto-include as context |
+
 ## MCP (Model Context Protocol)
 
-Kite integrates with MCP servers. A built-in Playwright server provides browser tools automatically.
+Kite integrates with MCP servers. A built-in Playwright server provides 27 browser tools automatically (headless Chromium with vision/screenshot support).
 
 ### Configure MCP Servers
 
@@ -412,7 +618,43 @@ Add to `.mcp.json` or `kite.config.json`:
 }
 ```
 
-Use `/mcp` to check server status.
+### MCP Config Locations (priority order)
+
+1. Built-in Playwright browser (lowest)
+2. User: `~/.kite/config.json` → `mcpServers`
+3. Project: `.mcp.json` or `mcp.json`
+4. Local: `.kite/mcp.json` or `kite.config.json` → `mcpServers`
+
+### Browser Tools
+
+The built-in Playwright MCP server provides browser automation:
+
+- `browser_navigate` — go to a URL
+- `browser_take_screenshot` — capture page screenshot (returns image)
+- `browser_click` — click an element by accessibility ref
+- `browser_type` — type text into input fields
+- `browser_snapshot` — get the page accessibility tree
+- `browser_evaluate` — run JavaScript in the browser
+- `browser_fill_form` — fill form fields
+- `browser_press_key` — press keyboard keys
+- `browser_tabs` — list open tabs
+- `browser_wait_for` — wait for an element
+- `browser_close` — close the browser
+
+To customize or disable:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp", "--headless", "--browser", "firefox"]
+    }
+  }
+}
+```
+
+Use `/mcp` to check server status and available tools.
 
 ## Architecture
 
@@ -420,24 +662,44 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design.
 
 ```
 src/
-├── entrypoints/cli.ts          # CLI boot sequence and arg parsing
+├── entrypoints/
+│   ├── cli.ts                  # CLI boot sequence, arg parsing, pipeline subcommands
+│   └── daemon.ts               # Pipeline scheduler daemon
 ├── screens/REPL.tsx            # Ink-based interactive REPL
 ├── screens/readlineRepl.ts     # Fallback readline REPL
 ├── QueryEngine.ts              # Query orchestration
 ├── query.ts                    # Async generator query loop
 ├── Tool.ts                     # Tool interface + factory
 ├── tools.ts                    # Tool registry
-├── commands.ts                 # 48 slash commands
-├── providers/                  # LLM provider adapters
-├── tools/                      # 29 tool implementations
-├── components/                 # 70+ Ink/React UI components
+├── commands.ts                 # 50 slash commands
+├── providers/                  # LLM provider adapters (8 providers)
+├── tools/                      # 35+ tool implementations
+│   ├── BashTool/               # Shell execution with 6 security layers
+│   ├── HttpRequestTool/        # Full HTTP client
+│   ├── PipelineTool/           # Pipeline automation (5 tools)
+│   ├── AgentTool/              # Subagent spawning
+│   ├── TaskTools/              # Background task management (6 tools)
+│   └── ...                     # 20+ more tool directories
+├── services/
+│   ├── pipeline/               # Pipeline engine
+│   │   ├── types.ts            # Pipeline type definitions
+│   │   ├── loader.ts           # YAML parsing & validation
+│   │   ├── context.ts          # {{ }} interpolation engine
+│   │   ├── executor.ts         # Stage orchestration via QueryEngine
+│   │   ├── scheduler.ts        # Real cron executor (node-cron)
+│   │   └── logger.ts           # JSONL run logging
+│   ├── mcp/                    # MCP server management
+│   ├── compact/                # Auto-compaction & microcompact
+│   ├── browser/                # Built-in Playwright config
+│   ├── tools/                  # StreamingToolExecutor
+│   └── api/                    # Retry with exponential backoff
+├── components/                 # 65+ Ink/React UI components
 ├── ink/hooks/                  # 14 React hooks
 ├── state/                      # AppStateStore + persistence
 ├── plugins/                    # Plugin loader system
-├── services/                   # MCP, compaction, retry, browser
 ├── themes/                     # 6 color themes
 ├── skills/                     # Skill loading from SKILL.md
-├── utils/                      # Config, permissions, session, git, bash
+├── utils/                      # Config, permissions, session, git, bash, sandbox
 └── vim/                        # Vim mode (motions, operators, text objects)
 ```
 
@@ -448,7 +710,7 @@ npm install           # Install dependencies
 npm start             # Run with tsx (no build needed)
 npm run dev           # Watch mode
 npm run build         # Build TypeScript to dist/
-npm test              # Run all 692 tests
+npm test              # Run all 772 tests
 npm run typecheck     # Type check only
 npx vitest run src/path/to/test.ts   # Run specific test
 ```
@@ -459,16 +721,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
 
 | Metric | Value |
 |--------|-------|
-| Source files | 221 |
-| Source lines | 51,936 |
-| Tools | 29 |
-| Commands | 48 |
+| Source files | 135 |
+| Test files | 34 |
+| Source lines | 38,736 |
+| Built-in tools | 35+ |
+| Slash commands | 50 |
 | React hooks | 14 |
-| Components | 70+ |
-| Providers | 8 |
-| Themes | 6 |
-| Tests | 692 passing |
-| Test files | 32 |
+| UI components | 65+ |
+| LLM providers | 8 |
+| Color themes | 6 |
+| Tests | 772 passing |
 | TypeScript errors | 0 |
 
 ## License
@@ -485,3 +747,5 @@ Built with:
 - [Commander](https://github.com/tj/commander.js) — CLI argument parsing
 - [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) — Model Context Protocol
 - [Playwright MCP](https://github.com/playwright-community/playwright-mcp) — Browser automation
+- [node-cron](https://github.com/node-cron/node-cron) — Pipeline scheduling
+- [yaml](https://github.com/eemeli/yaml) — Pipeline YAML parsing

@@ -1,0 +1,70 @@
+name: codebase-health
+description: Analyze codebase health — run build, tests, and generate a summary report
+
+trigger:
+  type: manual
+
+settings:
+  maxTurns: 30
+  permissionMode: bypassPermissions
+  cwd: /root/kite-ts
+
+stages:
+  - name: gather-stats
+    prompt: |
+      Gather basic stats about the current project. Run these commands and report the results:
+
+      1. Count source files:  find src -name '*.ts' ! -name '*.test.ts' | wc -l
+      2. Count test files:    find src -name '*.test.ts' | wc -l
+      3. Count total lines:   find src -name '*.ts' ! -name '*.test.ts' -exec cat {} + | wc -l
+      4. Show git branch:     git branch --show-current
+      5. Recent commits:      git log --oneline -5
+
+      Output the results in a clear structured format.
+    tools: [Bash]
+
+  - name: run-typecheck
+    prompt: |
+      Run the TypeScript type checker on the project:
+
+        npx tsc --noEmit 2>&1
+
+      Report whether there are type errors. If there are errors, list each one.
+      If there are no errors, say "TypeScript: 0 errors".
+    tools: [Bash]
+
+  - name: run-tests
+    prompt: |
+      Run the test suite and report the results:
+
+        npm test 2>&1
+
+      Extract and report:
+      - Total test files (passed/failed)
+      - Total tests (passed/failed)
+      - Duration
+      - Any failed test names and error messages
+
+      Be concise. If all tests pass, say "All tests passed" with counts.
+    tools: [Bash]
+
+  - name: generate-report
+    prompt: |
+      Based on the following pipeline stage outputs, generate a concise Markdown health report.
+
+      ## Codebase Stats
+      {{ stages.gather-stats.output }}
+
+      ## TypeScript Type Check
+      {{ stages.run-typecheck.output }}
+
+      ## Test Results
+      {{ stages.run-tests.output }}
+
+      Write the report to /root/kite-ts/HEALTH_REPORT.md with:
+      - A "# Codebase Health Report" header
+      - Date/time of the report
+      - Sections for each area above
+      - An overall status: HEALTHY or NEEDS ATTENTION
+      - Keep it under 50 lines
+    tools: [Write, Bash]

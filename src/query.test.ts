@@ -180,13 +180,15 @@ describe('query', () => {
 
   it('respects maxTurns limit', async () => {
     // Provider always requests tools (infinite loop)
+    let callCount = 0
     const provider: LLMProvider = {
       name: 'mock',
       async *chat() {
+        const id = `tu-${++callCount}`
         yield { type: 'message_start', model: 'mock' }
-        yield { type: 'tool_use_start', id: `tu-${Date.now()}`, name: 'Echo' }
-        yield { type: 'tool_use_delta', id: `tu-${Date.now()}`, inputDelta: '{"text":"loop"}' }
-        yield { type: 'tool_use_end', id: `tu-${Date.now()}` }
+        yield { type: 'tool_use_start', id, name: 'Echo' }
+        yield { type: 'tool_use_delta', id, inputDelta: '{"text":"loop"}' }
+        yield { type: 'tool_use_end', id }
         yield { type: 'message_end', stopReason: 'tool_use' }
       },
       supportsFeature: () => true,

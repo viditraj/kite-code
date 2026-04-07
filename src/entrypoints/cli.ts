@@ -79,6 +79,159 @@ async function main(): Promise<void> {
     .option('--doctor', 'Run system diagnostics')
     .option('--setup', 'Launch provider setup wizard')
 
+  // ──────────────────────────────────────────────────────────────────
+  // Pipeline subcommand
+  // ──────────────────────────────────────────────────────────────────
+  const pipelineCmd = program
+    .command('pipeline')
+    .description('Manage and run headless pipelines')
+
+  pipelineCmd
+    .command('list')
+    .description('List all discovered pipelines')
+    .action(async () => {
+      const { discoverPipelines } = await import('../services/pipeline/loader.js')
+      const pipelines = discoverPipelines(process.cwd())
+      if (pipelines.length === 0) {
+        console.log('No pipelines found. Create a YAML file in .kite/pipelines/ to define one.')
+        return
+      }
+      console.log(`Found ${pipelines.length} pipeline(s):\n`)
+      for (const { pipeline, filePath } of pipelines) {
+        const trigger = pipeline.trigger.type === 'cron'
+          ? `cron: ${pipeline.trigger.schedule}`
+          : pipeline.trigger.type
+        console.log(`  ${pipeline.name}`)
+        if (pipeline.description) console.log(`    ${pipeline.description}`)
+        console.log(`    Trigger: ${trigger} | Stages: ${pipeline.stages.length}`)
+        console.log(`    File: ${filePath}\n`)
+      }
+    })
+
+  pipelineCmd
+    .command('run <name>')
+    .description('Run a pipeline by name')
+    .option('--dry-run', 'Plan only, no write operations')
+    .option('--set <vars...>', 'Variable overrides (key=value)')
+    .action(async (name: string, opts: { dryRun?: boolean; set?: string[] }) => {
+      bootstrapTools()
+      const config = loadConfig()
+      const provider = createProvider(config)
+      const { bootstrapMCPTools } = await import('../bootstrap/mcp.js')
+      const { tools } = await bootstrapMCPTools(process.cwd())
+      const { getSystemPrompt } = await import('../constants/prompts.js')
+      const { findPipeline } = await import('../services/pipeline/loader.js')
+      const { executePipeline } = await import('../services/pipeline/executor.js')
+
+      const found = findPipeline(name, process.cwd())
+      if (!found) {
+        console.error(`Pipeline "${name}" not found`)
+        process.exit(1)
+      }
+
+      // Parse variable overrides
+      const variables: Record<string, string> = {}
+      if (opts.set) {
+        for (const s of opts.set) {
+          const eq = s.indexOf('=')
+          if (eq > 0) variables[s.slice(0, eq)] = s.slice(eq + 1)
+        }
+      }
+
+      console.log(`Running pipeline "${name}"${opts.dryRun ? ' (dry run)' : ''}...`)
+
+      const run = await executePipeline(found.pipeline, {
+        provider,
+        tools,
+        defaultModel: config.provider.model,
+        defaultMaxTokens: config.behavior.maxTokens,
+        getSystemPrompt,
+        variables: Object.keys(variables).length > 0 ? variables : undefined,
+        dryRun: opts.dryRun,
+        onProgress: (event) => {
+          switch (event.type) {
+            case 'stage_start':
+              process.stdout.write(`  [${event.stageIndex + 1}/${event.totalStages}] ${event.stageName}...`)
+              break
+            case 'stage_complete':
+              process.stdout.write(` ${event.result.status}\n`)
+              break
+            case 'stage_skip':
+              console.log(`  [SKIP] ${event.stageName}: ${event.reason}`)
+              break
+          }
+        },
+      })
+
+      console.log(`\nResult: ${run.status}`)
+      if (run.error) console.log(`Error: ${run.error}`)
+      console.log(`Duration: ${run.completedAt ? ((run.completedAt - run.startedAt) / 1000).toFixed(1) + 's' : '?'}`)
+      console.log(`Cost: $${run.totalCostUsd.toFixed(4)}`)
+      process.exit(run.status === 'completed' ? 0 : 1)
+    })
+
+  pipelineCmd
+    .command('status <name>')
+    .description('Show run history for a pipeline')
+    .option('--run <runId>', 'Get details for a specific run')
+    .option('--limit <n>', 'Number of recent runs', parseInt)
+    .action(async (name: string, opts: { run?: string; limit?: number }) => {
+      const { getRunHistory, getRunById } = await import('../services/pipeline/logger.js')
+
+      if (opts.run) {
+        const run = getRunById(name, opts.run)
+        if (!run) {
+          console.error(`Run "${opts.run}" not found for pipeline "${name}"`)
+          process.exit(1)
+        }
+        console.log(JSON.stringify(run, null, 2))
+        return
+      }
+
+      const runs = getRunHistory(name, opts.limit ?? 10)
+      if (runs.length === 0) {
+        console.log(`No run history for pipeline "${name}"`)
+        return
+      }
+
+      console.log(`Recent runs for "${name}":\n`)
+      for (const run of runs) {
+        const duration = run.completedAt
+          ? ((run.completedAt - run.startedAt) / 1000).toFixed(1) + 's'
+          : '?'
+        console.log(`  ${run.id.slice(0, 8)} | ${run.status} | ${new Date(run.startedAt).toISOString()} | ${duration} | $${run.totalCostUsd.toFixed(4)}`)
+      }
+    })
+
+  pipelineCmd
+    .command('validate <file>')
+    .description('Validate a pipeline YAML file')
+    .action(async (file: string) => {
+      const { resolve } = await import('path')
+      const { loadPipelineFromFile } = await import('../services/pipeline/loader.js')
+      const filePath = resolve(file)
+      const result = loadPipelineFromFile(filePath)
+
+      if (result.validation.valid) {
+        console.log(`Pipeline "${result.pipeline!.name}" is valid.`)
+      } else {
+        console.error(`Validation failed with ${result.validation.errors.length} error(s):`)
+        for (const err of result.validation.errors) {
+          console.error(`  [${err.path}] ${err.message}`)
+        }
+        process.exit(1)
+      }
+    })
+
+  pipelineCmd
+    .command('daemon')
+    .description('Start the pipeline scheduler daemon')
+    .option('--once', 'Run all due pipelines once and exit')
+    .action(async (opts: { once?: boolean }) => {
+      const { startDaemon } = await import('./daemon.js')
+      await startDaemon({ once: opts.once, cwd: process.cwd() })
+    })
+
   program.action(async (prompt: string | undefined, options: Record<string, unknown>) => {
     // Bootstrap all built-in tools
     bootstrapTools()

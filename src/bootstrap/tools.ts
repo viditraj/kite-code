@@ -45,6 +45,14 @@ import {
   TaskStopTool,
   TaskOutputTool,
 } from '../tools/TaskTools/TaskTools.js'
+import { HttpRequestTool } from '../tools/HttpRequestTool/HttpRequestTool.js'
+import {
+  PipelineRunTool,
+  PipelineListTool,
+  PipelineStatusTool,
+  PipelineValidateTool,
+  PipelineDeleteTool,
+} from '../tools/PipelineTool/PipelineTool.js'
 
 /**
  * All built-in tools in the order they should be registered.
@@ -102,6 +110,14 @@ const ALL_BUILTIN_TOOLS = [
   ScheduleCronCreate,
   ScheduleCronList,
   ScheduleCronDelete,
+  // HTTP client tool
+  HttpRequestTool,
+  // Pipeline tools
+  PipelineRunTool,
+  PipelineListTool,
+  PipelineStatusTool,
+  PipelineValidateTool,
+  PipelineDeleteTool,
 ]
 
 let bootstrapped = false

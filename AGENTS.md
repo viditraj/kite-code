@@ -39,21 +39,26 @@ npm start -- --help # Run from source via tsx
 
 ## Current State
 
-- **221 source files**, **51,936 lines**
-- **29 tools**, **48 commands**, **14 hooks**, **70+ components**
-- **692 tests passing**, **0 TypeScript errors**
+- **135 source files**, **34 test files**, **38,736 source lines**
+- **35+ tools**, **50 commands**, **14 hooks**, **65+ components**
+- **772 tests passing**, **0 TypeScript errors**
 - **6 themes**, **8 LLM providers**
+- **Headless pipeline engine** with YAML config, cron scheduling, and JSONL logging
 
 ### Key Modules
 
 | Module | Path | Description |
 |--------|------|-------------|
-| CLI entry | `src/entrypoints/cli.ts` | Boot sequence, arg parsing, onboarding |
+| CLI entry | `src/entrypoints/cli.ts` | Boot sequence, arg parsing, onboarding, pipeline subcommands |
+| Daemon | `src/entrypoints/daemon.ts` | Pipeline scheduler daemon |
 | REPL | `src/screens/REPL.tsx` | Ink-based interactive terminal UI |
 | Query loop | `src/query.ts` | Async generator with streaming + tool execution |
 | QueryEngine | `src/QueryEngine.ts` | Orchestrates conversations |
-| Commands | `src/commands.ts` | 48 slash commands |
-| Tools | `src/tools/` | 29 tool implementations |
+| Commands | `src/commands.ts` | 50 slash commands |
+| Tools | `src/tools/` | 35+ tool implementations |
+| HttpRequest | `src/tools/HttpRequestTool/` | Full HTTP client (all methods, headers, auth, body) |
+| Pipeline | `src/services/pipeline/` | Headless pipeline engine (loader, executor, scheduler, logger) |
+| PipelineTool | `src/tools/PipelineTool/` | 5 agent-facing pipeline tools |
 | Providers | `src/providers/` | Anthropic + OpenAI-compatible adapters |
 | Hooks | `src/ink/hooks/` | 14 React hooks |
 | State | `src/state/` | AppStateStore + persistence + React context |
