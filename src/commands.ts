@@ -1380,6 +1380,261 @@ function createBuiltinCommands(): Command[] {
         return { type: 'text', value: `${key} set to: ${provider[key]} (session only — config save failed)` }
       },
     },
+
+    // ---- marketplace ----
+    {
+      type: 'local',
+      name: 'marketplace',
+      description: 'Browse, search, and install MCP servers from mcpservers.org',
+      argumentHint: '[search|browse|info|install|uninstall|skills|categories] [args]',
+      aliases: ['market', 'mcp-market'],
+      supportsNonInteractive: true,
+      async call(args, context) {
+        const { browseServers, searchServers, getServerDetail, browseSkills, getCategories, installFromMarketplace, uninstallMCPServer, listInstalledServers } = await import('./services/marketplace/index.js')
+
+        const MAX_DISPLAY = 15
+        const SEP = '\u2500'.repeat(60) // thin horizontal line
+
+        // Helper: format a single server entry as a compact numbered row
+        function fmtServer(s: { name: string; description: string; path: string; isOfficial: boolean }, idx: number): string {
+          const num = String(idx + 1).padStart(2, ' ')
+          const badge = s.isOfficial ? ' (official)' : ''
+          const desc = s.description.length > 100 ? s.description.slice(0, 97) + '...' : s.description
+          const id = s.path.replace(/^\/servers\//, '')
+          return `  ${num}. ${s.name}${badge}\n      ${desc}\n      > ${id}`
+        }
+
+        const parts = args.trim().split(/\s+/)
+        const subcommand = parts[0]?.toLowerCase() ?? ''
+        const rest = parts.slice(1).join(' ').trim()
+
+        // No args — show usage + installed servers
+        if (!subcommand) {
+          const cwd = context.getCwd()
+          const installed = listInstalledServers(cwd)
+
+          const lines = [
+            'MCP Marketplace',
+            SEP,
+            '',
+            'Commands:',
+            '  /marketplace search <query>      Search for servers',
+            '  /marketplace browse [category]   Browse by category',
+            '  /marketplace info <id>           Server details & config',
+            '  /marketplace install <id>        Add server to .mcp.json',
+            '  /marketplace uninstall <name>    Remove server from config',
+            '  /marketplace skills              Browse agent skills',
+            '  /marketplace categories          List categories',
+            '',
+            'Categories:',
+            '  ' + getCategories().map(c => c.id).join(', '),
+          ]
+
+          if (installed.length > 0) {
+            lines.push('', `Installed (${installed.length}):`)
+            for (const s of installed) {
+              const cmd = (s.config as any).command ?? (s.config as any).url ?? '?'
+              lines.push(`  - ${s.name} [${s.scope}] ${cmd}`)
+            }
+          }
+
+          return { type: 'text', value: lines.join('\n') }
+        }
+
+        // /marketplace categories
+        if (subcommand === 'categories' || subcommand === 'cats') {
+          const cats = getCategories()
+          const lines = ['Categories:', SEP, '']
+          for (const cat of cats) {
+            lines.push(`  ${cat.id.padEnd(18)} ${cat.label}`)
+          }
+          lines.push('', 'Usage: /marketplace browse <category>')
+          return { type: 'text', value: lines.join('\n') }
+        }
+
+        // /marketplace search <query>
+        if (subcommand === 'search' || subcommand === 's') {
+          if (!rest) {
+            return { type: 'text', value: 'Usage: /marketplace search <query>\nExample: /marketplace search github' }
+          }
+          try {
+            const servers = await searchServers(rest, { maxResults: MAX_DISPLAY })
+            if (servers.length === 0) {
+              return { type: 'text', value: `No results for "${rest}". Try broader terms or /marketplace browse.` }
+            }
+            const lines = [
+              `Search: "${rest}" (${servers.length} result${servers.length !== 1 ? 's' : ''})`,
+              SEP,
+              '',
+            ]
+            for (let i = 0; i < servers.length; i++) {
+              lines.push(fmtServer(servers[i]!, i))
+              if (i < servers.length - 1) lines.push('')
+            }
+            lines.push('', SEP)
+            lines.push('  /marketplace info <id>      View details')
+            lines.push('  /marketplace install <id>   Install to project')
+            return { type: 'text', value: lines.join('\n') }
+          } catch (err: unknown) {
+            return { type: 'text', value: `Search failed: ${(err as Error).message}` }
+          }
+        }
+
+        // /marketplace browse [category]
+        if (subcommand === 'browse' || subcommand === 'b') {
+          try {
+            const category = rest || undefined
+            const validCats = getCategories().map(c => c.id)
+            if (category && !validCats.includes(category as any)) {
+              return { type: 'text', value: `Unknown category: ${category}\nValid: ${validCats.join(', ')}` }
+            }
+            const { servers, totalCount } = await browseServers({
+              category: category as any,
+              sort: 'name',
+              page: 1,
+            })
+            const shown = servers.slice(0, MAX_DISPLAY)
+            const heading = category
+              ? `${category} (${totalCount.toLocaleString()} servers, showing ${shown.length})`
+              : `All servers (${totalCount.toLocaleString()} total, showing ${shown.length})`
+            const lines = [heading, SEP, '']
+            for (let i = 0; i < shown.length; i++) {
+              lines.push(fmtServer(shown[i]!, i))
+              if (i < shown.length - 1) lines.push('')
+            }
+            if (servers.length > MAX_DISPLAY) {
+              lines.push('', `  ... and ${totalCount - MAX_DISPLAY} more. Use /marketplace search <keyword> to narrow results.`)
+            }
+            lines.push('', SEP)
+            lines.push('  /marketplace info <id>      View details')
+            lines.push('  /marketplace install <id>   Install to project')
+            return { type: 'text', value: lines.join('\n') }
+          } catch (err: unknown) {
+            return { type: 'text', value: `Browse failed: ${(err as Error).message}` }
+          }
+        }
+
+        // /marketplace info <server-path>
+        if (subcommand === 'info' || subcommand === 'i' || subcommand === 'details') {
+          if (!rest) {
+            return { type: 'text', value: 'Usage: /marketplace info <id>\nExample: /marketplace info microsoft/playwright-mcp' }
+          }
+          try {
+            const detail = await getServerDetail(rest)
+            const lines = [
+              `${detail.name}${detail.isOfficial ? '  (official)' : ''}`,
+              SEP,
+            ]
+            if (detail.description) lines.push('', detail.description)
+            lines.push('')
+            if (detail.githubUrl) lines.push(`  GitHub:  ${detail.githubUrl}`)
+            if (detail.npmPackage) lines.push(`  Package: ${detail.npmPackage}`)
+            lines.push(`  URL:     https://mcpservers.org${detail.path}`)
+
+            if (detail.standardConfig) {
+              lines.push('', 'Config:', '')
+              const configJson = JSON.stringify(
+                { mcpServers: { [detail.standardConfig.serverName]: detail.standardConfig.config } },
+                null, 2,
+              )
+              for (const line of configJson.split('\n')) {
+                lines.push(`  ${line}`)
+              }
+              lines.push('', `Install: /marketplace install ${rest}`)
+            } else {
+              lines.push('', 'No auto-install config detected. Manual setup may be required.')
+            }
+
+            if (detail.longDescription) {
+              const preview = detail.longDescription.slice(0, 400)
+              lines.push('', SEP, '', preview + (detail.longDescription.length > 400 ? '...' : ''))
+            }
+
+            return { type: 'text', value: lines.join('\n') }
+          } catch (err: unknown) {
+            return { type: 'text', value: `Failed to fetch details: ${(err as Error).message}` }
+          }
+        }
+
+        // /marketplace install <server-path> [--user]
+        if (subcommand === 'install' || subcommand === 'add') {
+          if (!rest) {
+            return { type: 'text', value: 'Usage: /marketplace install <id> [--user]\nExample: /marketplace install microsoft/playwright-mcp\n\nAdd --user to install to ~/.kite/config.json instead of .mcp.json' }
+          }
+          const isUserScope = rest.includes('--user')
+          const serverPath = rest.replace('--user', '').trim()
+          const scope = isUserScope ? 'user' as const : 'project' as const
+          const cwd = context.getCwd()
+
+          try {
+            const result = await installFromMarketplace(serverPath, scope, cwd)
+            if (result.success) {
+              return {
+                type: 'text',
+                value: [
+                  `Installed "${result.serverName}"`,
+                  SEP,
+                  '',
+                  `  Config: ${result.configPath}`,
+                  '',
+                  'Restart Kite or reconnect MCP servers to activate.',
+                ].join('\n'),
+              }
+            }
+            return { type: 'text', value: result.message }
+          } catch (err: unknown) {
+            return { type: 'text', value: `Install failed: ${(err as Error).message}` }
+          }
+        }
+
+        // /marketplace uninstall <server-name> [--user]
+        if (subcommand === 'uninstall' || subcommand === 'remove') {
+          if (!rest) {
+            return { type: 'text', value: 'Usage: /marketplace uninstall <name> [--user]\nExample: /marketplace uninstall playwright' }
+          }
+          const isUserScope = rest.includes('--user')
+          const serverName = rest.replace('--user', '').trim()
+          const scope = isUserScope ? 'user' as const : 'project' as const
+          const cwd = context.getCwd()
+
+          const result = uninstallMCPServer(serverName, scope, cwd)
+          return { type: 'text', value: result.message }
+        }
+
+        // /marketplace skills
+        if (subcommand === 'skills' || subcommand === 'sk') {
+          try {
+            const skills = await browseSkills()
+            if (skills.length === 0) {
+              return { type: 'text', value: 'No skills found.' }
+            }
+            const shown = skills.slice(0, 20)
+            const lines = [
+              `Agent Skills (${skills.length} available)`,
+              SEP,
+              '',
+            ]
+            for (let i = 0; i < shown.length; i++) {
+              const sk = shown[i]!
+              const num = String(i + 1).padStart(2, ' ')
+              const desc = sk.description.length > 100 ? sk.description.slice(0, 97) + '...' : sk.description
+              lines.push(`  ${num}. ${sk.name}  by ${sk.author}`)
+              if (desc) lines.push(`      ${desc}`)
+              if (i < shown.length - 1) lines.push('')
+            }
+            if (skills.length > 20) {
+              lines.push('', `  ... and ${skills.length - 20} more.`)
+            }
+            lines.push('', 'Full list: https://mcpservers.org/agent-skills')
+            return { type: 'text', value: lines.join('\n') }
+          } catch (err: unknown) {
+            return { type: 'text', value: `Failed to fetch skills: ${(err as Error).message}` }
+          }
+        }
+
+        return { type: 'text', value: `Unknown subcommand: ${subcommand}\nRun /marketplace for usage.` }
+      },
+    },
   ]
 }
 

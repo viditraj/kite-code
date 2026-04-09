@@ -177,15 +177,20 @@ export function PromptInput({
 
       // ---- Return / Enter ----
       if (key.return) {
-        // If autocomplete is visible and user presses Enter, apply the selection
+        // If autocomplete is visible and user presses Enter, apply the selection —
+        // but ONLY when the user hasn't already typed arguments after the command.
+        // e.g. "/market" with autocomplete showing → submit "/marketplace"
+        // but  "/marketplace browse" → submit the full value as-is
         if (acVisible) {
-          const selected = acSuggestions[acSelectedIndex]
-          if (selected) {
-            const cmd = `/${selected.name}`
-            // Submit the command directly (no trailing space)
-            onSubmit(cmd)
-            resetState()
-            return
+          const hasArgs = value.trimStart().includes(' ')
+          if (!hasArgs) {
+            const selected = acSuggestions[acSelectedIndex]
+            if (selected) {
+              const cmd = `/${selected.name}`
+              onSubmit(cmd)
+              resetState()
+              return
+            }
           }
         }
 

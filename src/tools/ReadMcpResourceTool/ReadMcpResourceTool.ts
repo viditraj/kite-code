@@ -1,8 +1,9 @@
 /**
  * ReadMcpResourceTool — Read a specific resource from an MCP server.
  *
- * Reads a resource identified by server name and resource URI.
- * Currently returns a helpful message directing users to the /mcp command.
+ * Reads a resource identified by server name and resource URI from a
+ * connected MCP server. Queries the live MCPManager singleton.
+ *
  * Auto-allowed (no permission prompt needed).
  */
 
@@ -55,7 +56,7 @@ Input:
 
 Returns the resource content as text or binary data. Resources can be files, database records, API responses, or any data exposed by the MCP server.
 
-Use ListMcpResources first to discover available resources. To manage MCP server connections, use the /mcp command.`
+Use ListMcpResources first to discover available resources and connected servers.`
   },
 
   async checkPermissions(input: Record<string, unknown>) {
@@ -94,29 +95,54 @@ Use ListMcpResources first to discover available resources. To manage MCP server
   },
 
   async call(input: ReadMcpResourceInput) {
-    const message = [
-      `MCP resource reading is not yet connected to a live MCP manager.`,
-      '',
-      `Requested resource:`,
-      `  Server: ${input.server_name}`,
-      `  URI: ${input.resource_uri}`,
-      '',
-      'To manage MCP servers and their resources, use the /mcp command:',
-      '  /mcp                   — Show MCP server status',
-      '  /mcp add <server>      — Add a new MCP server',
-      '  /mcp remove <server>   — Remove an MCP server',
-      '',
-      'Once MCP servers are connected, this tool will read the specified resource',
-      'and return its content.',
-    ].join('\n')
+    const { getMCPManager } = await import('../../bootstrap/mcp.js')
+    const manager = getMCPManager()
 
-    return {
-      data: {
-        server_name: input.server_name,
-        resource_uri: input.resource_uri,
-        content: null,
-        message,
-      } as ReadMcpResourceOutput,
+    if (!manager) {
+      return {
+        data: {
+          server_name: input.server_name,
+          resource_uri: input.resource_uri,
+          content: null,
+          message: 'No MCP servers are connected. MCP servers connect automatically when Kite starts.',
+        } as ReadMcpResourceOutput,
+      }
+    }
+
+    // Check if server is connected
+    const connections = manager.getConnections()
+    if (!connections.has(input.server_name)) {
+      const available = Array.from(connections.keys())
+      return {
+        data: {
+          server_name: input.server_name,
+          resource_uri: input.resource_uri,
+          content: null,
+          message: `MCP server "${input.server_name}" is not connected. Available servers: ${available.join(', ') || 'none'}`,
+        } as ReadMcpResourceOutput,
+      }
+    }
+
+    try {
+      const content = await manager.readResource(input.server_name, input.resource_uri)
+      return {
+        data: {
+          server_name: input.server_name,
+          resource_uri: input.resource_uri,
+          content,
+          message: `Read resource "${input.resource_uri}" from "${input.server_name}" (${content.length} chars)`,
+        } as ReadMcpResourceOutput,
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      return {
+        data: {
+          server_name: input.server_name,
+          resource_uri: input.resource_uri,
+          content: null,
+          message: `Failed to read resource "${input.resource_uri}" from "${input.server_name}": ${errMsg}`,
+        } as ReadMcpResourceOutput,
+      }
     }
   },
 
@@ -133,6 +159,7 @@ Use ListMcpResources first to discover available resources. To manage MCP server
       type: 'tool_result' as const,
       tool_use_id: toolUseID,
       content: content.message,
+      is_error: true,
     }
   },
 })

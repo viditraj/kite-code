@@ -394,12 +394,12 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
       {step === 'apikey' && (
         <Box flexDirection="column">
           <Box marginBottom={1}>
-            <Text bold color="cyan">API key environment variable:</Text>
+            <Text bold color="cyan">API Key:</Text>
           </Box>
           <Box marginBottom={1}>
             <Text dimColor>
-              Kite reads your API key from an environment variable.{'\n'}
-              Default: <Text bold>{apiKeyEnv || 'KITE_API_KEY'}</Text>
+              Paste your API key directly, or enter an environment variable name.{'\n'}
+              Default env var: <Text bold>{selectedPreset?.apiKeyEnv || 'KITE_API_KEY'}</Text>
             </Text>
           </Box>
           <Box>
@@ -408,11 +408,13 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
               value={apiKeyEnv}
               onChange={setApiKeyEnv}
               onSubmit={handleApiKeySubmit}
-              placeholder={`Press Enter for ${apiKeyEnv || 'KITE_API_KEY'}`}
+              placeholder={`Paste key or press Enter for ${selectedPreset?.apiKeyEnv || 'KITE_API_KEY'}`}
             />
           </Box>
           <Box marginTop={1}>
-            <Text dimColor>Press Enter to accept default, or type a custom env var name</Text>
+            <Text dimColor>
+              Examples: sk-abc123... (raw key) or OPENAI_API_KEY (env var name)
+            </Text>
           </Box>
         </Box>
       )}
@@ -466,11 +468,20 @@ export const ProviderSetup: React.FC<ProviderSetupProps> = ({ onComplete, onSkip
             {apiKeyEnv && (
               <Text>
                 <Text dimColor>API Key:   </Text>
-                <Text>${`{${apiKeyEnv}}`}</Text>
-                {process.env[apiKeyEnv] ? (
-                  <Text color="green"> (set)</Text>
+                {/^[A-Z][A-Z0-9_]*$/.test(apiKeyEnv) ? (
+                  <>
+                    <Text>${`{${apiKeyEnv}}`}</Text>
+                    {process.env[apiKeyEnv] ? (
+                      <Text color="green"> (set)</Text>
+                    ) : (
+                      <Text color="yellow"> (not set — set it before use)</Text>
+                    )}
+                  </>
                 ) : (
-                  <Text color="yellow"> (not set — set it before use)</Text>
+                  <>
+                    <Text>{apiKeyEnv.slice(0, 8)}...{apiKeyEnv.slice(-4)}</Text>
+                    <Text color="green"> (key provided)</Text>
+                  </>
                 )}
               </Text>
             )}

@@ -26,6 +26,7 @@ import { BackgroundTasksBar, type TaskInfo } from '../components/tasks/TasksView
 import { Spinner, type SpinnerMode } from '../components/Spinner/Spinner.js'
 import { PromptInput } from '../components/PromptInput/PromptInput.js'
 import { ProviderSetup, type ProviderSetupResult } from './ProviderSetup.js'
+import { MarketplaceBrowser } from '../components/marketplace/MarketplaceBrowser.js'
 import {
   MessageRow,
   MessageDivider,
@@ -94,7 +95,7 @@ interface PermissionQueueItem {
   resolve: (allowed: boolean) => void
 }
 
-type Screen = 'prompt' | 'loading' | 'permission' | 'interactive-command' | 'setup'
+type Screen = 'prompt' | 'loading' | 'permission' | 'interactive-command' | 'setup' | 'marketplace'
 
 interface InteractiveCommandState {
   type: 'help' | 'model' | 'provider' | 'mode' | 'theme'
@@ -574,6 +575,12 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
           return
         }
 
+        // Marketplace interactive browser
+        if ((cmd.name === 'marketplace' || cmd.name === 'market' || cmd.name === 'mcp-market') && !args) {
+          setScreen('marketplace')
+          return
+        }
+
         // Non-interactive commands
         if (cmd.name === 'setup') {
           // Launch the full provider setup wizard
@@ -637,8 +644,8 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
   // ========================================================================
 
   useInput((input, key) => {
-    // Don't handle input when permission dialog or interactive command is active
-    if (screen === 'permission' || screen === 'interactive-command') return
+    // Don't handle input when permission dialog, interactive command, or marketplace is active
+    if (screen === 'permission' || screen === 'interactive-command' || screen === 'marketplace') return
 
     if (key.ctrl && input === 'c' && isLoading) {
       engine.abort()
@@ -791,18 +798,35 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
       cfg.verifySsl = result.verifySsl
     }
 
+    const providerData = {
+      name: result.providerName,
+      model: result.model,
+      apiKeyEnv: result.apiKeyEnv,
+      apiBaseUrl: result.apiBaseUrl || undefined,
+      verifySsl: result.verifySsl,
+    }
+
     // Save to ~/.kite/config.json (global config)
     try {
       saveGlobalConfig((current) => ({
         ...current,
-        provider: {
-          name: result.providerName,
-          model: result.model,
-          apiKeyEnv: result.apiKeyEnv,
-          apiBaseUrl: result.apiBaseUrl || undefined,
-          verifySsl: result.verifySsl,
-        },
+        provider: providerData,
       }))
+    } catch {
+      // Non-fatal
+    }
+
+    // Also update local kite.config.json if it exists (it takes priority over global)
+    try {
+      const { existsSync, readFileSync, writeFileSync } = require('fs')
+      const { join } = require('path')
+      const localPath = join(process.cwd(), 'kite.config.json')
+      if (existsSync(localPath)) {
+        const raw = readFileSync(localPath, 'utf-8')
+        const data = JSON.parse(raw)
+        data.provider = { ...data.provider, ...providerData }
+        writeFileSync(localPath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+      }
     } catch {
       // Non-fatal
     }
@@ -820,6 +844,18 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
   const handleSetupSkip = useCallback(() => {
     setScreen('prompt')
   }, [])
+
+  // ========================================================================
+  // Marketplace handlers
+  // ========================================================================
+
+  const handleMarketplaceExit = useCallback(() => {
+    setScreen('prompt')
+  }, [])
+
+  const handleMarketplaceInstalled = useCallback((serverName: string, message: string) => {
+    addSystemMessage(message)
+  }, [addSystemMessage])
 
   // ========================================================================
   // Initial prompt
@@ -906,6 +942,16 @@ export const REPL: React.FC<REPLProps> = ({ provider, config, initialPrompt, opt
         <ProviderSetup
           onComplete={handleSetupComplete}
           onSkip={handleSetupSkip}
+        />
+      )}
+
+      {/* Marketplace browser */}
+      {screen === 'marketplace' && (
+        <MarketplaceBrowser
+          onExit={handleMarketplaceExit}
+          onInstalled={handleMarketplaceInstalled}
+          cwd={process.cwd()}
+          isActive={screen === 'marketplace'}
         />
       )}
 

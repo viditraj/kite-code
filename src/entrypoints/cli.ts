@@ -232,6 +232,226 @@ async function main(): Promise<void> {
       await startDaemon({ once: opts.once, cwd: process.cwd() })
     })
 
+  // ──────────────────────────────────────────────────────────────────
+  // MCP subcommand — manage MCP servers from the CLI
+  //
+  // Usage:
+  //   kite mcp add <name> <command> [args...]        Add a stdio MCP server
+  //   kite mcp add <name> --url <url>                Add a remote (SSE/HTTP) MCP server
+  //   kite mcp remove <name>                         Remove an MCP server
+  //   kite mcp list                                  List configured MCP servers
+  //   kite mcp reset                                 Remove all MCP servers from project config
+  // ──────────────────────────────────────────────────────────────────
+  const mcpCmd = program
+    .command('mcp')
+    .description('Manage MCP servers')
+
+  mcpCmd
+    .command('add')
+    .description('Add an MCP server (e.g. kite mcp add playwright npx @playwright/mcp@latest)')
+    .argument('<name>', 'Server name (used as the key in config)')
+    .argument('[command]', 'Command to run (e.g. npx, node, python)')
+    .argument('[args...]', 'Arguments passed to the command')
+    .option('-s, --scope <scope>', 'Config scope: project (default) or user', 'project')
+    .option('--url <url>', 'URL for remote SSE/HTTP server (instead of command)')
+    .option('--type <type>', 'Transport type: stdio (default), sse, http')
+    .option('-e, --env <vars...>', 'Environment variables (KEY=VALUE)')
+    .option('--header <headers...>', 'Headers for remote servers (Key=Value)')
+    .action(async (name: string, command: string | undefined, args: string[], opts: {
+      scope: string
+      url?: string
+      type?: string
+      env?: string[]
+      header?: string[]
+    }) => {
+      const chalk = (await import('chalk')).default
+      const { installMCPServer } = await import('../services/marketplace/installer.js')
+      const scope = opts.scope === 'user' ? 'user' as const : 'project' as const
+
+      // Parse env vars
+      const env: Record<string, string> = {}
+      if (opts.env) {
+        for (const e of opts.env) {
+          const eq = e.indexOf('=')
+          if (eq > 0) env[e.slice(0, eq)] = e.slice(eq + 1)
+        }
+      }
+
+      // Parse headers
+      const headers: Record<string, string> = {}
+      if (opts.header) {
+        for (const h of opts.header) {
+          const eq = h.indexOf('=')
+          if (eq > 0) headers[h.slice(0, eq)] = h.slice(eq + 1)
+        }
+      }
+
+      // Remote server (SSE or HTTP)
+      if (opts.url) {
+        const type = (opts.type === 'http' ? 'http' : 'sse') as 'sse' | 'http'
+        const result = installMCPServer(
+          {
+            serverName: name,
+            config: {
+              command: '',
+              type,
+              url: opts.url,
+              ...(Object.keys(headers).length > 0 ? { headers } : {}),
+            },
+          },
+          scope,
+          process.cwd(),
+        )
+        if (result.success) {
+          console.log(chalk.green(`\u2713 Added "${name}" (${type}) to ${result.configPath}`))
+        } else {
+          console.error(chalk.red(result.message))
+          process.exit(1)
+        }
+        return
+      }
+
+      // Stdio server (command + args)
+      if (!command) {
+        console.error(chalk.red('Error: command is required for stdio servers'))
+        console.error('Usage: kite mcp add <name> <command> [args...]')
+        console.error('Example: kite mcp add playwright npx @playwright/mcp@latest')
+        process.exit(1)
+      }
+
+      const result = installMCPServer(
+        {
+          serverName: name,
+          config: {
+            command,
+            ...(args.length > 0 ? { args } : {}),
+            ...(Object.keys(env).length > 0 ? { env } : {}),
+          },
+        },
+        scope,
+        process.cwd(),
+      )
+
+      if (result.success) {
+        console.log(chalk.green(`\u2713 Added "${name}" to ${result.configPath}`))
+        console.log(chalk.dim(`  Command: ${command}${args.length > 0 ? ' ' + args.join(' ') : ''}`))
+      } else {
+        console.error(chalk.red(result.message))
+        process.exit(1)
+      }
+    })
+
+  mcpCmd
+    .command('remove')
+    .description('Remove an MCP server')
+    .argument('<name>', 'Server name to remove')
+    .option('-s, --scope <scope>', 'Config scope: project or user (auto-detected if omitted)')
+    .action(async (name: string, opts: { scope?: string }) => {
+      const chalk = (await import('chalk')).default
+      const { uninstallMCPServer, listInstalledServers } = await import('../services/marketplace/installer.js')
+
+      // If scope is explicitly set, use it
+      if (opts.scope) {
+        const scope = opts.scope === 'user' ? 'user' as const : 'project' as const
+        const result = uninstallMCPServer(name, scope, process.cwd())
+        if (result.success) {
+          console.log(chalk.green(`\u2713 Removed "${name}" from ${result.configPath}`))
+        } else {
+          console.error(chalk.red(result.message))
+          process.exit(1)
+        }
+        return
+      }
+
+      // Auto-detect: try project first, then user
+      const projectResult = uninstallMCPServer(name, 'project', process.cwd())
+      if (projectResult.success) {
+        console.log(chalk.green(`\u2713 Removed "${name}" from ${projectResult.configPath}`))
+        return
+      }
+
+      const userResult = uninstallMCPServer(name, 'user', process.cwd())
+      if (userResult.success) {
+        console.log(chalk.green(`\u2713 Removed "${name}" from ${userResult.configPath}`))
+        return
+      }
+
+      // Not found in either scope — check where it might actually live
+      const installed = listInstalledServers(process.cwd())
+      const match = installed.find(s => s.name === name)
+      if (match) {
+        console.error(chalk.red(`Server "${name}" found in [${match.scope}] scope but could not be removed.`))
+      } else {
+        console.error(chalk.red(`Server "${name}" not found in any config file.`))
+      }
+      process.exit(1)
+    })
+
+  mcpCmd
+    .command('list')
+    .description('List configured MCP servers')
+    .action(async () => {
+      const chalk = (await import('chalk')).default
+      const { getAllMCPConfigs } = await import('../services/mcp/config.js')
+      const { servers, errors } = getAllMCPConfigs(process.cwd())
+      const entries = Object.entries(servers)
+
+      if (entries.length === 0) {
+        console.log('No MCP servers configured.')
+        console.log(chalk.dim('Add one: kite mcp add <name> <command> [args...]'))
+        return
+      }
+
+      console.log(`MCP servers (${entries.length}):\n`)
+      for (const [name, config] of entries) {
+        const type = config.type ?? 'stdio'
+        const scope = config.scope ?? 'unknown'
+        const detail = type === 'stdio'
+          ? `${(config as any).command ?? '?'}${(config as any).args?.length ? ' ' + (config as any).args.join(' ') : ''}`
+          : (config as any).url ?? '?'
+        console.log(`  ${chalk.bold(name)} ${chalk.dim(`[${scope}]`)} ${chalk.dim(`(${type})`)}`)
+        console.log(`    ${detail}`)
+      }
+
+      if (errors.length > 0) {
+        console.log()
+        for (const err of errors) {
+          console.log(chalk.yellow(`  Warning: ${err}`))
+        }
+      }
+    })
+
+  mcpCmd
+    .command('reset')
+    .description('Remove all MCP servers from project config')
+    .option('-s, --scope <scope>', 'Config scope: project (default) or user', 'project')
+    .action(async (opts: { scope: string }) => {
+      const chalk = (await import('chalk')).default
+      const { writeFileSync, existsSync, readFileSync } = await import('fs')
+      const { join } = await import('path')
+      const { homedir } = await import('os')
+
+      const configPath = opts.scope === 'user'
+        ? join(homedir(), '.kite', 'config.json')
+        : join(process.cwd(), '.mcp.json')
+
+      if (!existsSync(configPath)) {
+        console.log('No config file found. Nothing to reset.')
+        return
+      }
+
+      try {
+        const raw = readFileSync(configPath, 'utf-8')
+        const data = JSON.parse(raw)
+        data.mcpServers = {}
+        writeFileSync(configPath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+        console.log(chalk.green(`\u2713 Cleared all MCP servers from ${configPath}`))
+      } catch (err) {
+        console.error(chalk.red(`Failed to reset: ${(err as Error).message}`))
+        process.exit(1)
+      }
+    })
+
   program.action(async (prompt: string | undefined, options: Record<string, unknown>) => {
     // Bootstrap all built-in tools
     bootstrapTools()
@@ -688,7 +908,8 @@ async function runProviderSetup(config: KiteConfig): Promise<{
 // ============================================================================
 
 /**
- * Save the current config to ~/.kite/config.json (global config).
+ * Save the current config to ~/.kite/config.json (global config)
+ * and also update local kite.config.json if it exists (since it takes priority).
  */
 function saveConfigFile(config: KiteConfig): void {
   const configData = {
@@ -707,14 +928,27 @@ function saveConfigFile(config: KiteConfig): void {
     },
   }
 
-  // Save to ~/.kite/config.json (global config — not CWD)
+  // Save to ~/.kite/config.json (global config)
   try {
     saveGlobalConfig(current => ({
       ...current,
       ...configData,
     }))
   } catch (err) {
-    console.error(`Failed to save config: ${(err as Error).message}`)
+    console.error(`Failed to save global config: ${(err as Error).message}`)
+  }
+
+  // Also update local kite.config.json if it exists (it takes priority over global)
+  try {
+    const localPath = join(process.cwd(), 'kite.config.json')
+    if (existsSync(localPath)) {
+      const raw = require('fs').readFileSync(localPath, 'utf-8')
+      const data = JSON.parse(raw)
+      data.provider = { ...data.provider, ...configData.provider }
+      writeFileSync(localPath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+    }
+  } catch {
+    // Non-fatal — local config update is best-effort
   }
 }
 

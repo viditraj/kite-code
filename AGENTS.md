@@ -39,11 +39,12 @@ npm start -- --help # Run from source via tsx
 
 ## Current State
 
-- **135 source files**, **34 test files**, **38,736 source lines**
-- **35+ tools**, **50 commands**, **14 hooks**, **65+ components**
-- **772 tests passing**, **0 TypeScript errors**
+- **135 source files**, **35 test files**, **38,736 source lines**
+- **39+ tools**, **51 commands**, **14 hooks**, **71+ components**
+- **818 tests passing**, **0 TypeScript errors**
 - **6 themes**, **8 LLM providers**
 - **Headless pipeline engine** with YAML config, cron scheduling, and JSONL logging
+- **MCP Marketplace** with interactive TUI browser, search, detail views, and one-click install
 
 ### Key Modules
 
@@ -69,6 +70,8 @@ npm start -- --help # Run from source via tsx
 | Bash security | `src/tools/BashTool/` | 6 validation layers |
 | Autocomplete | `src/utils/suggestions/` | Command fuzzy matching |
 | MCP | `src/services/mcp/` | MCP server management |
+| Marketplace | `src/services/marketplace/` | Browse, search, and install MCP servers from mcpservers.org |
+| MarketplaceTool | `src/tools/MarketplaceTool/` | 4 agent-facing marketplace tools |
 | Compaction | `src/services/compact/` | Auto-compact + microcompact |
 
 ## Browser Integration
@@ -127,3 +130,47 @@ To disable the browser entirely:
   }
 }
 ```
+
+## MCP Marketplace
+
+Kite integrates with [mcpservers.org](https://mcpservers.org/) to let users discover,
+browse, and install MCP servers directly from the terminal.
+
+### Slash Command
+
+`/marketplace` (aliases: `/market`, `/mcp-market`)
+
+```
+/marketplace                          Show usage and installed servers
+/marketplace search <query>           Search for MCP servers
+/marketplace browse [category]        Browse by category
+/marketplace info <server-path>       Show server details and config
+/marketplace install <path> [--user]  Install to .mcp.json (or ~/.kite/config.json)
+/marketplace uninstall <name>         Remove a server from config
+/marketplace skills                   Browse agent skills
+/marketplace categories               List available categories
+```
+
+### Agent Tools
+
+4 agent-facing tools in `src/tools/MarketplaceTool/`:
+
+| Tool | Description |
+|------|-------------|
+| `MarketplaceSearch` | Search mcpservers.org by keyword |
+| `MarketplaceBrowse` | Browse servers by category |
+| `MarketplaceInfo` | Get detailed info + install config |
+| `MarketplaceInstall` | Install a server to .mcp.json |
+
+### How It Works
+
+1. **Client** (`src/services/marketplace/client.ts`) — Fetches and parses HTML
+   from mcpservers.org (no API available), extracts server cards and config JSON
+2. **Installer** (`src/services/marketplace/installer.ts`) — Writes MCP server
+   configs to `.mcp.json` (project) or `~/.kite/config.json` (user scope)
+3. **Tools** — Agent can autonomously search, discover, and install MCP servers
+
+### Categories
+
+search, web-scraping, communication, productivity, development, database,
+cloud-service, file-system, cloud-storage, version-control, other

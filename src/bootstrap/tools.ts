@@ -53,6 +53,12 @@ import {
   PipelineValidateTool,
   PipelineDeleteTool,
 } from '../tools/PipelineTool/PipelineTool.js'
+import {
+  MarketplaceSearchTool,
+  MarketplaceBrowseTool,
+  MarketplaceInfoTool,
+  MarketplaceInstallTool,
+} from '../tools/MarketplaceTool/MarketplaceTool.js'
 
 /**
  * All built-in tools in the order they should be registered.
@@ -118,6 +124,11 @@ const ALL_BUILTIN_TOOLS = [
   PipelineStatusTool,
   PipelineValidateTool,
   PipelineDeleteTool,
+  // Marketplace tools
+  MarketplaceSearchTool,
+  MarketplaceBrowseTool,
+  MarketplaceInfoTool,
+  MarketplaceInstallTool,
 ]
 
 let bootstrapped = false

@@ -297,13 +297,40 @@ export function loadConfig(cliConfigPath?: string): KiteConfig {
 
 /**
  * Get the API key for the configured provider.
+ *
+ * Resolution order:
+ * 1. If apiKeyEnv looks like a raw API key (not an env var name), use it directly.
+ *    This handles the common case where users paste their key into the setup wizard
+ *    instead of an environment variable name.
+ * 2. Look up process.env[apiKeyEnv]
+ * 3. Fall back to process.env.KITE_API_KEY
  */
 export function getApiKey(config: KiteConfig): string | undefined {
+  const keyRef = config.provider.apiKeyEnv
+
+  // Detect raw API keys pasted directly: they contain lowercase, dashes,
+  // or are longer than typical env var names (which are UPPER_SNAKE_CASE).
+  if (keyRef && !isEnvVarName(keyRef)) {
+    return keyRef
+  }
+
   return (
-    process.env[config.provider.apiKeyEnv] ||
+    process.env[keyRef] ||
     process.env['KITE_API_KEY'] ||
     undefined
   )
+}
+
+/**
+ * Check if a string looks like an environment variable name
+ * (UPPER_SNAKE_CASE, no dashes, reasonable length) vs a raw API key.
+ */
+function isEnvVarName(s: string): boolean {
+  if (!s || s.length === 0) return false
+  // Env var names: letters, digits, underscores, typically UPPER_CASE
+  // API keys: contain lowercase, dashes, dots, or are very long random strings
+  if (/^[A-Z][A-Z0-9_]*$/.test(s) && s.length <= 64) return true
+  return false
 }
 
 // ============================================================================
